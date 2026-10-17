@@ -345,8 +345,10 @@ class AlphaBetaSearch(
                 }
             }
 
-            // Check extension: a safe check (the checking piece cannot be captured) is searched one ply deeper
-            val extension = if (givesCheck && ply < rootDepth * 2 && !position.isAttacked(move.to, position.sideToMove)) 1 else 0
+            // Check extension: a check that does not lose material is searched one ply deeper (the checking piece cannot be
+            // captured, or the exchanges on its square do not lose, by the static exchange evaluation before the move)
+            val extension = if (givesCheck && ply < rootDepth * 2 &&
+                (!position.isAttacked(move.to, position.sideToMove) || checkKeepsMaterial(move))) 1 else 0
             val newDepth = depth - 1 + extension
             var score: Int
             if (legalMoves == 1) {
@@ -535,6 +537,14 @@ class AlphaBetaSearch(
 
     /** Score of a draw for the side to move: the engine (root color) dislikes draws by its contempt. */
     private fun drawScore(): Int = if (position.sideToMove == rootColor) -evaluator.contempt else evaluator.contempt
+
+    /** Whether the [move] just made does not lose material in the exchanges on its square (SEE of the position before it). */
+    private fun checkKeepsMaterial(move: Move): Boolean {
+        position.unmakeMove(move)
+        val keeps = StaticExchange.isAtLeast(position, move, 0)
+        position.makeMove(move)
+        return keeps
+    }
 
     /** Repetition (once is enough inside the search), fifty-move rule or insufficient material. */
     private fun isDraw(): Boolean =
