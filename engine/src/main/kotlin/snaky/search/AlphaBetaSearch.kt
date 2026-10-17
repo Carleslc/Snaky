@@ -114,6 +114,9 @@ class AlphaBetaSearch(
     /** Two quiet moves per ply that caused a beta cutoff (https://www.chessprogramming.org/Killer_Heuristic). */
     private val killers = Array(MAX_PLY + 1) { IntArray(2) }
 
+    /** Static evaluation at each ply of the current line (-INFINITE when in check), to know if the position improves. */
+    private val staticEvals = IntArray(MAX_PLY + 2)
+
     /** history[color][from * 64 + to]: how good quiet moves were (https://www.chessprogramming.org/History_Heuristic). */
     private val history = Array(2) { IntArray(64 * 64) }
 
@@ -274,9 +277,13 @@ class AlphaBetaSearch(
         val inCheck = position.inCheck()
         val staticEval = if (inCheck) -Score.INFINITE else evaluate()
         val canPrune = !pvNode && !inCheck && !Score.isMate(alpha) && !Score.isMate(beta)
+        // Improving: the static evaluation is better than two plies ago (the last move of this side helped)
+        staticEvals[ply] = staticEval
+        val improving = !inCheck && ply >= 2 && staticEval > staticEvals[ply - 2]
 
         // Reverse futility pruning: even losing a margin per remaining ply, the position stays above beta
-        if (canPrune && depth <= REVERSE_FUTILITY_MAX_DEPTH && staticEval - REVERSE_FUTILITY_MARGIN * depth >= beta) {
+        // (one ply less of margin when the position improves)
+        if (canPrune && depth <= REVERSE_FUTILITY_MAX_DEPTH && staticEval - REVERSE_FUTILITY_MARGIN * (depth - if (improving) 1 else 0) >= beta) {
             return staticEval
         }
 
@@ -342,7 +349,8 @@ class AlphaBetaSearch(
             if (canPrune && legalMoves > 1 && isQuiet(move) && !givesCheck && !isKiller(move, ply)) {
                 // Late move pruning: late quiet moves near the leaves are very unlikely to be good
                 // Futility pruning: a quiet move cannot raise the static evaluation enough to reach alpha
-                if ((depth <= LATE_MOVE_PRUNING_MAX_DEPTH && legalMoves > LATE_MOVE_PRUNING_BASE + depth * depth) ||
+                // (half of the moves when the position does not improve)
+                if ((depth <= LATE_MOVE_PRUNING_MAX_DEPTH && legalMoves > (LATE_MOVE_PRUNING_BASE + depth * depth) / (if (improving) 1 else 2)) ||
                     (depth <= FUTILITY_MAX_DEPTH && staticEval + FUTILITY_MARGIN * depth <= alpha)) {
                     position.unmakeMove(move)
                     quietsSearched[ply][quiets++] = move.bits
