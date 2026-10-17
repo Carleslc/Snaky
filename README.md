@@ -110,7 +110,8 @@ Other UCI options: `Move Overhead`, `Greedy Depth`, `SyzygyProbeDepth` and `Weig
 ## Versions and styles
 
 Strength measured against Stockfish 19 with limited strength (`UCI_LimitStrength`, `UCI_Elo`), 100 games per level
-at 10+0.1 (v0: 40 games per level at 60+0.6), 1 thread, with the balanced openings of `tools/openings/balanced.epd`.
+at 10+0.1 (v0: 40 games per level at 60+0.6), 1 thread, with the balanced openings of `tools/openings/balanced.epd`
+(v1.03 with its default hash of 256 MB, the earlier versions with 64 MB).
 The `UCI_Elo` scale of Stockfish is anchored to the [CCRL Blitz](https://computerchess.org.uk/404/) list,
 where Snaky would be ~100 Elo higher (see the CCRL estimate below, measured at 2+1).
 
@@ -121,13 +122,15 @@ where Snaky would be ~100 Elo higher (see the CCRL estimate below, measured at 2
 | **v1 Greedy** (depth 3) | ~1100 | 22% vs 1320 (50 games) | 91/300 | 5427 | 1368 |
 | **v1 Greedy** (depth 4) | ~1120 | 24% vs 1320 (50 games) | 84/300 | 6030 | 1547 |
 | **v1 Material** | ~2500–2600 | 54% vs 2400, 49.5% vs 2600 | 285/300 | 9631 | 2072 |
-| **v1.02 Space** (default) | ~2740 | 82.5% vs 2400, 70.5% vs 2600, 40.5% vs 2800, 21.5% vs 3000 | 282/300 | 10821 | 2305 |
-| **v1.02 Full** | ~2740 (−1 ± 18 vs Space) | 84% vs 2400, 74% vs 2600, 37.5% vs 2800, 20% vs 3000 | 280/300 | 10783 | 2269 |
+| **v1.03 Space** (default) | ~2780 | 79.5% vs 2600, 35% vs 2800, 28.5% vs 3000, 9.5% vs 3190 | 283/300 | 11152 | 2290 |
+| **v1.03 Full** | ~2805 | 78% vs 2600, 53% vs 2800, 23% vs 3000, 8% vs 3190 | 281/300 | 11193 | 2227 |
 | Stockfish 19 (full strength, reference) | 3804 in CCRL Blitz (8 threads) | | 279/300 | 13876 (0.1 s) | 3832 |
 
-- Against Stockfish, Space and Full score the same: 2736 ± 40 and 2738 ± 40 fitting the four levels (v1.0: 2746 and 2741),
-  and since v1.02 they are also equal in their direct match (−1 ± 18 in 1000 games at 8+0.08; in v1.0 Full won by +37 ± 16).
-  The gains of v1.02 against v1.01 (Space +9, Full +22 in their direct matches) are within the margin of error against Stockfish.
+- Fitting the four levels, v1.03 is **2782 ± 41** (Space) and **2806 ± 41** (Full); v1.02 was 2736 and 2738 (2750 and 2748
+  with the levels 2600–3000 of v1.03), and v1.0 2746 and 2741. In their direct match v1.03 beats v1.02 by **+144 ± 35**
+  (244 games at 8+0.08), much more than against Stockfish (+30–60): games between versions of the same engine
+  exaggerate the gains of the search. In v1.02 Space and Full were equal in their direct match (−1 ± 18; in v1.0 Full won by +37 ± 16).
+- `UCI_Elo` of Stockfish goes up to 3190.
 - WAC: [Win At Chess](tools/suites/wac.epd), 300 tactical positions. STS: [Strategic Test Suite](tools/suites/sts.epd),
   1500 positional positions, points out of 15000 with `tools/sts.py`; STS Elo is the CCRL 40/4 estimate of
   [`sts_rating.py`](https://github.com/fsmosca/STS-Rating) (v0: from its score with the same formula).
@@ -163,42 +166,50 @@ and wins more games behind in material, but no longer plays for space; Space kee
 Retuning Space with its style weights fixed was worse (−28), and so was giving more time when the best move changes (−28).
 See the [PRD](docs/PRD.md) (§10, v1.02).
 
-STS by theme (`tools/sts.py`, 0.2 s per position, points out of 1000; Space and Full v1.02; Stockfish with 0.1 s):
+v1.03 searches faster and prunes better, with the same evaluation as v1.02: magic bitboards and an evaluation cache
+(+22% nodes per second), and from the queue of single changes of other engines, each one tested against the previous
+winner (1000 games at 8+0.08 at most): SEE pruning of late quiet moves that hang the moved piece (+10) and of losing
+captures (+16), the check extension for checks that do not lose material by SEE (+16), *improving* in reverse futility
+and late move pruning (+17) and ProbCut (+9). Rejected: an adaptive null move reduction, history pruning, history in
+the late move reductions, a new Texel tuning of Full (+2) and Space rebuilt from the weights of Full (−13).
+See the [PRD](docs/PRD.md) (§10, v1.03).
+
+STS by theme (`tools/sts.py`, 0.2 s per position, points out of 1000; Space and Full v1.03; Stockfish with 0.1 s):
 
 | Theme | v0 | Greedy | Material | Space | Full | Stockfish 19 |
 |---|---|---|---|---|---|---|
-| Undermining | 317 | 230 | 542 | **666** | 643 | 929 |
-| Open files and diagonals | 344 | 251 | 553 | **688** | 653 | 912 |
-| Knight outposts | 396 | 178 | 632 | 691 | **706** | 923 |
-| Square vacancy | 312 | 197 | 607 | 631 | **728** | 941 |
-| Bishop vs knight | 543 | **857** | 744 | 818 | 815 | 962 |
-| Recapturing | 823 | 767 | 869 | 889 | **893** | 954 |
-| Offer of simplification | 434 | 212 | 631 | **679** | 669 | 902 |
-| Advancement of f/g/h pawns | 305 | 193 | 509 | **678** | 654 | 902 |
-| Advancement of a/b/c pawns | 305 | 190 | 495 | 566 | **570** | 862 |
-| Simplification | 652 | **865** | 726 | 818 | 840 | 967 |
-| King activity | 389 | 276 | 601 | **678** | 641 | 909 |
-| Center control | 436 | 264 | 672 | **771** | 733 | 923 |
-| Pawn play in the center | 524 | 278 | 701 | 731 | **733** | 907 |
-| 7th rank | 491 | 313 | 725 | **810** | 802 | 941 |
-| Avoid pointless exchange | 464 | 485 | 624 | **707** | 703 | 942 |
-| **Total** | 6735 | 5556 | 9631 | **10821** | 10783 | 13876 |
+| Undermining | 317 | 230 | 542 | **707** | 704 | 929 |
+| Open files and diagonals | 344 | 251 | 553 | 705 | **731** | 912 |
+| Knight outposts | 396 | 178 | 632 | **746** | 718 | 923 |
+| Square vacancy | 312 | 197 | 607 | 676 | **730** | 941 |
+| Bishop vs knight | 543 | **857** | 744 | 825 | 840 | 962 |
+| Recapturing | 823 | 767 | 869 | 895 | **911** | 954 |
+| Offer of simplification | 434 | 212 | 631 | 706 | **726** | 902 |
+| Advancement of f/g/h pawns | 305 | 193 | 509 | **667** | 643 | 902 |
+| Advancement of a/b/c pawns | 305 | 190 | 495 | **623** | 600 | 862 |
+| Simplification | 652 | **865** | 726 | 822 | 819 | 967 |
+| King activity | 389 | 276 | 601 | **673** | 653 | 909 |
+| Center control | 436 | 264 | 672 | **793** | **793** | 923 |
+| Pawn play in the center | 524 | 278 | 701 | 772 | **792** | 907 |
+| 7th rank | 491 | 313 | 725 | 813 | **821** | 941 |
+| Avoid pointless exchange | 464 | 485 | 624 | **729** | 712 | 942 |
+| **Total** | 6735 | 5556 | 9631 | 11152 | **11193** | 13876 |
 
-Space is better at undermining, open files, king activity, center control and the advance of the king-side pawns;
-Full at square vacancy, outposts and simplification (piece activity). Greedy only shines where the answer is a capture or an exchange (bishop vs knight, simplification).
+Space is better at outposts, the advance of the pawns on both wings, king activity and avoiding pointless exchanges;
+Full at open files, square vacancy, recapturing and pawn play in the center (piece activity). Greedy only shines where the answer is a capture or an exchange (bishop vs knight, simplification).
 
 Style metrics (`tools/style.py`, after the opening, against Stockfish at a similar level: v0 and Greedy against
-1320–1600, Material against 2600, Space and Full v1.02 against 2600 and 2800):
+1320–1600, Material against 2600, Space and Full v1.03 against 2600 and 2800):
 
 | | Opponent mobility | Space | Territory | Opponent trapped pieces | Wins behind in material |
 |---|---|---|---|---|---|
 | **v0** | 27.9 | 0.79 | −1.08 | 0.27 | 10% |
 | **v1 Greedy** | 38.9 | −0.13 | −6.42 | 0.32 | 2 of 7 wins |
 | **v1 Material** | 28.9 | 0.52 | −2.13 | 0.15 | 2% |
-| **v1.02 Space** | 26.4 | **0.82** | 0.11 | **0.22** | 3% |
-| **v1.02 Full** | **25.3** | 0.46 | **0.39** | 0.18 | 1% |
-| Stockfish 2600 (against Space) | 26.2 | −0.86 | −0.80 | 0.20 | |
-| Stockfish 2800 (against Space) | 22.6 | −0.67 | 1.33 | 0.17 | |
+| **v1.03 Space** | 26.3 | **0.92** | 0.46 | **0.23** | 3% |
+| **v1.03 Full** | **25.1** | 0.34 | **1.03** | 0.20 | 3% |
+| Stockfish 2600 (against Space) | 28.1 | −1.08 | −1.40 | 0.23 | |
+| Stockfish 2800 (against Space) | 21.9 | −0.71 | 0.96 | 0.17 | |
 
 - **v0**: an alpha-beta search to depth 3–4 with material, piece-square tables and mobility: it already gains some space,
   but it does not control the half of the opponent (negative territory).
@@ -208,9 +219,9 @@ Style metrics (`tools/style.py`, after the opening, against Stockfish at a simil
 - **Space**: the constrictor. It gains the most space and traps the most pieces.
 - **Full**: the most restrictive with the mobility of the opponent, with more territory but less space than Space:
   it plays for activity and material more than for space.
-- Against Stockfish 2800, Stockfish restricts Snaky more (Snaky keeps 22.6 moves, Stockfish 26.5) and takes more
-  territory, but Snaky still gains more space; against 2600 the restriction is even (26.2 moves each) and Snaky
-  gains more space and territory.
+- Against Stockfish 2800, Stockfish restricts Snaky more (Snaky keeps 21.9 moves, Stockfish 26.2) and takes more
+  territory, but Snaky still gains more space; against 2600 Snaky restricts Stockfish more (Stockfish keeps 26.5 moves,
+  Snaky 28.1) and gains more space and territory.
 
 ### Threads and hash
 
@@ -250,6 +261,8 @@ of the nodes: about **135 Elo per doubling** (50 games against Stockfish per poi
 | Plays | Greedy depth 2 | Greedy depth 2 | Greedy depth 3 | Greedy depth 4 | Space, 127 nodes | 356 nodes | 1.7k nodes | 4.6k nodes | 13k nodes | 60k nodes | 169k nodes | Full |
 
 The nodes are reached in a fraction of a second, so the levels play fast and do not depend on the time control.
+The levels were calibrated with the search of v1.0: with the faster search and the new pruning of v1.03, the levels
+limited by nodes play somewhat stronger than their nominal Elo (the greedy levels and the top level are not affected).
 
 ### CCRL estimate
 

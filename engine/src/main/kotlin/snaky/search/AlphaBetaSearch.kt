@@ -36,8 +36,13 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - Late move reductions (LMR): quiet moves ordered late are probably bad, so they are searched with less depth,
  *   and searched again with the full depth only if they turn out to be good.
  * - Pruning near the leaves (not in the principal variation nor in check): reverse futility pruning (the static
- *   evaluation is so far above beta that the node is cut), futility pruning (quiet moves that cannot reach alpha)
- *   and late move pruning (the latest quiet moves are skipped).
+ *   evaluation is so far above beta that the node is cut), futility pruning (quiet moves that cannot reach alpha),
+ *   late move pruning (the latest quiet moves are skipped), and SEE pruning of late quiet moves that hang the moved
+ *   piece and of late captures that lose material. When the static evaluation improves on two plies before
+ *   ("improving"), reverse futility pruning cuts sooner, and when it does not, late move pruning skips more moves.
+ * - ProbCut (https://www.chessprogramming.org/ProbCut): a capture that beats beta by a margin in a shallower search
+ *   very likely beats it in the full search, so the node is cut.
+ * - Check extension: checks that do not lose material (by SEE) are searched one ply deeper.
  * - Quiescence search: at the end of the main search, captures and promotions are searched until the position is quiet,
  *   so the evaluation is not fooled by a pending capture (horizon effect). Captures losing material (SEE) are skipped.
  * - Transposition table: results of positions already searched (by other move orders or in previous iterations)

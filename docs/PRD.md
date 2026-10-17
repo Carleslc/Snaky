@@ -4,8 +4,8 @@
 
 | | |
 |---|---|
-| Versión | v1.02 (ver §8, Versiones) |
-| Estado | Fases 0 a 7 completadas, v1.01 con libro, Syzygy, Chess960 y niveles de fuerza, BOT en Lichess (Snaky-Bot), v1.02 con términos de finales, Full reajustado y sin pérdidas por tiempo con poco reloj |
+| Versión | v1.03 (ver §8, Versiones) |
+| Estado | Fases 0 a 7 completadas, v1.01 con libro, Syzygy, Chess960 y niveles de fuerza, BOT en Lichess (Snaky-Bot), v1.02 con términos de finales, Full reajustado y sin pérdidas por tiempo con poco reloj, v1.03 más rápido y con más podas |
 | Lenguaje del motor | Kotlin (JVM 17+) en `engine/` |
 | Herramientas | Python 3 en `tools/` |
 | Protocolo | UCI |
@@ -620,6 +620,34 @@ Revisión de dos partidas del BOT:
 
 Del resto de la gestión del tiempo de Oxydan (porcentajes del reloj por fase: 4 % en la apertura, 6 % en el medio juego, 5 % en el final, más el 75–80 % del incremento), Snaky ya reparte un 3,3 % del reloj más el 75 % del incremento; gastar menos (reloj entre 40 jugadas) dio −12,8 ± 29, y más tiempo cuando cambia la mejor jugada, −28.
 
+### v1.03: velocidad y búsqueda
+
+Con el BOT parado para no compartir la CPU, una cola de cambios sueltos de otros motores (DeepBecky, Tempest), cada uno probado con SPRT contra el último ganador (como mucho 1000 partidas a 8+0,08; aceptado si el SPRT lo acepta o si al terminar es positivo, como los términos de finales de v1.02):
+
+| Cambio | Resultado | Decisión |
+|---|---|---|
+| Magic bitboards ([Magic Bitboards](https://chessprogramming.org/Magic_Bitboards); *fancy*, ~840 KiB, números buscados al arrancar con semillas fijas por fila, como Stockfish) | Mismo árbol, +8 % nodos/s en `bench`, +25 % en perft 5 de Kiwipete. Las *magics* más densas de [Best Magics so far](https://chessprogramming.org/Best_Magics_so_far) no cambian la velocidad (−2 %, dentro del ruido) | ✅ |
+| Caché de evaluaciones estáticas por hilo (262.144 entradas, 3 MB) | Mismo árbol, +22 % nodos/s con lo anterior (la evaluación es más de la mitad del tiempo, según Java Flight Recorder) | ✅ |
+| Poda por SEE de jugadas tranquilas tardías que dejan la pieza en prisión (profundidad ≤ 6, más de 60 cp por ply) | +10,4 ± 16,6 | ✅ |
+| *Null move* adaptativo (+1 ply de reducción por cada 200 cp sobre beta, hasta 3) | −4,9 ± 16 | ❌ |
+| Extensión de jaque también cuando la pieza que da jaque puede ser capturada pero el SEE no pierde | +15,7 ± 16,1 | ✅ |
+| Poda por historia (margen 4000 por ply: no se activaba nunca, el mismo motor dio +8, una medida del ruido; margen 1000) | −5,9 ± 15,3 | ❌ |
+| Poda por SEE de capturas tardías que pierden (profundidad ≤ 6, más de 20 cp por ply al cuadrado) | +15,7 ± 15,8 | ✅ |
+| *Improving* (la evaluación estática mejora respecto a dos plies antes): un ply menos de margen en *reverse futility pruning*, y *late move pruning* desde la mitad de jugadas si no mejora | +16,7 ± 15,3 | ✅ |
+| ProbCut ([ProbCut](https://chessprogramming.org/ProbCut); desde profundidad 5, capturas que superan beta + 200 en quiescencia y en una búsqueda 4 plies menor) | +8,7 ± 15,5 | ✅ |
+| LMR según la historia (±1 ply por cada 8192, hasta 2) | −1,0 ± 15,9 | ❌ |
+| Texel de Full con 4,4 M posiciones (*self-play* reciente, partidas contra Stockfish y las 66 partidas del BOT en Lichess) | +1,7 ± 16,3 (error 0,0895 → 0,0891) | ❌ |
+| Space desde los pesos de Full con los pesos del estilo de Space (método de la Fase 6) | Mejor estilo y 84,5 % contra Stockfish 2600 (el Space actual 76,5 %), pero −12,9 ± 17,7 en el enfrentamiento directo | ❌ |
+| Variantes con más restricción (15, 8) y movilidad 160 % | Menos movilidad del rival (25,8) pero menos piezas atrapadas, y más débiles contra Stockfish (82,5 y 77,5 %) | ❌ |
+
+Ya estaban: *null move* solo con la evaluación estática por encima de beta, su verificación contra el zugzwang, LMR en la raíz y conservar la jugada de la tabla de transposición al guardar un *fail low*.
+
+**v1.03 contra v1.02: +144 ± 35** (244 partidas, SPRT aceptado), más que la suma de los cambios por separado. Contra Stockfish (aperturas equilibradas, 1 hilo, 256 MB, 100 partidas por nivel a 10+0,1, 2600 / 2800 / 3000 / 3190): Space 79,5 / 35 / 28,5 / 9,5 % (**2782 ± 41**, v1.02 2750 con los mismos niveles) y Full 78 / 53 / 23 / 8 % (**2806 ± 41**, v1.02 2748): +30–60 contra Stockfish, mucho menos que contra v1.02 (las partidas entre versiones del mismo motor exageran las mejoras de la búsqueda). WAC 283 y 281; STS 11152 y 11193 (v1.02: 10821 y 10783); STS Elo 2290 y 2227. Estilo contra Stockfish 2600 y 2800: Space deja al rival 26,3 jugadas, espacio +0,92, territorio +0,46, 0,23 piezas atrapadas; Full 25,1, +0,34, +1,03, 0,20.
+
+**Lichess**: el BOT rinde ~2450 en sus 66 partidas (51 % contra rivales de 2446 de media, 2 derrotas por tiempo), frente a la estimación de ~2800–2850 en CCRL Blitz. No es una contradicción: la escala de los bots de Lichess es un grupo cerrado y está desplazada respecto a CCRL (los bots con Stockfish rondan 3000–3300 en blitz con Stockfish por encima de 3600 en CCRL; Tempest, con evaluación clásica, rondaba 2450–2650 en blitz). Además el BOT juega en un ordenador de casa (latencia de red, CPU compartida con otras tareas) y muchos ritmos rápidos.
+
+Los niveles de fuerza (`UCI_Elo`) se calibraron con la búsqueda de v1.0: con la de v1.03 los niveles limitados por nodos juegan algo más fuerte que su Elo nominal (falta recalibrarlos).
+
 ## 11. Riesgos
 
 | Riesgo | Mitigación |
@@ -661,7 +689,7 @@ Páginas de [chessprogramming.org](https://chessprogramming.org/Main_Page) citad
 - **Introducción**: [Getting Started](https://chessprogramming.org/Getting_Started) · [Depth](https://chessprogramming.org/Depth) · [Ply](https://chessprogramming.org/Ply)
 - **Tablero y reglas**: [Bitboards](https://chessprogramming.org/Bitboards) · [Square Mapping Considerations](https://chessprogramming.org/Square_Mapping_Considerations) · [Classical Approach](https://chessprogramming.org/Classical_Approach) · [Magic Bitboards](https://chessprogramming.org/Magic_Bitboards) · [Looking for Magics](https://chessprogramming.org/Looking_for_Magics) · [Best Magics so far](https://chessprogramming.org/Best_Magics_so_far) · [Encoding Moves](https://chessprogramming.org/Encoding_Moves) · [Move Generation](https://chessprogramming.org/Move_Generation) · [Pseudo-Legal Move](https://chessprogramming.org/Pseudo-Legal_Move) · [Make Move](https://chessprogramming.org/Make_Move) · [Unmake Move](https://chessprogramming.org/Unmake_Move) · [Zobrist Hashing](https://chessprogramming.org/Zobrist_Hashing) · [Perft](https://chessprogramming.org/Perft) · [Perft Results](https://chessprogramming.org/Perft_Results) · [Repetitions](https://chessprogramming.org/Repetitions) · [Fifty-move Rule](https://chessprogramming.org/Fifty-move_Rule) · [Chess960](https://chessprogramming.org/Chess960)
 - **Notación**: [Forsyth-Edwards Notation](https://chessprogramming.org/Forsyth-Edwards_Notation) · [Algebraic Chess Notation](https://chessprogramming.org/Algebraic_Chess_Notation) · [Portable Game Notation](https://chessprogramming.org/Portable_Game_Notation) · [Extended Position Description](https://chessprogramming.org/Extended_Position_Description) · [UCI](https://chessprogramming.org/UCI)
-- **Búsqueda**: [Alpha-Beta](https://chessprogramming.org/Alpha-Beta) · [Negamax](https://chessprogramming.org/Negamax) · [Iterative Deepening](https://chessprogramming.org/Iterative_Deepening) · [Principal Variation Search](https://chessprogramming.org/Principal_Variation_Search) · [Aspiration Windows](https://chessprogramming.org/Aspiration_Windows) · [Quiescence Search](https://chessprogramming.org/Quiescence_Search) · [Delta Pruning](https://chessprogramming.org/Delta_Pruning) · [Mate Distance Pruning](https://chessprogramming.org/Mate_Distance_Pruning) · [Null Move](https://chessprogramming.org/Null_Move) · [Null Move Pruning](https://chessprogramming.org/Null_Move_Pruning) · [Zugzwang](https://chessprogramming.org/Zugzwang) · [Late Move Reductions](https://chessprogramming.org/Late_Move_Reductions) · [Futility Pruning](https://chessprogramming.org/Futility_Pruning) · [Reverse Futility Pruning](https://chessprogramming.org/Reverse_Futility_Pruning) · [Check Extensions](https://chessprogramming.org/Check_Extensions) · [Static Exchange Evaluation](https://chessprogramming.org/Static_Exchange_Evaluation) · [Contempt Factor](https://chessprogramming.org/Contempt_Factor) · [Draw Evaluation](https://chessprogramming.org/Draw_Evaluation)
+- **Búsqueda**: [Alpha-Beta](https://chessprogramming.org/Alpha-Beta) · [Negamax](https://chessprogramming.org/Negamax) · [Iterative Deepening](https://chessprogramming.org/Iterative_Deepening) · [Principal Variation Search](https://chessprogramming.org/Principal_Variation_Search) · [Aspiration Windows](https://chessprogramming.org/Aspiration_Windows) · [Quiescence Search](https://chessprogramming.org/Quiescence_Search) · [Delta Pruning](https://chessprogramming.org/Delta_Pruning) · [Mate Distance Pruning](https://chessprogramming.org/Mate_Distance_Pruning) · [Null Move](https://chessprogramming.org/Null_Move) · [Null Move Pruning](https://chessprogramming.org/Null_Move_Pruning) · [ProbCut](https://chessprogramming.org/ProbCut) · [Zugzwang](https://chessprogramming.org/Zugzwang) · [Late Move Reductions](https://chessprogramming.org/Late_Move_Reductions) · [Futility Pruning](https://chessprogramming.org/Futility_Pruning) · [Reverse Futility Pruning](https://chessprogramming.org/Reverse_Futility_Pruning) · [Check Extensions](https://chessprogramming.org/Check_Extensions) · [Static Exchange Evaluation](https://chessprogramming.org/Static_Exchange_Evaluation) · [Contempt Factor](https://chessprogramming.org/Contempt_Factor) · [Draw Evaluation](https://chessprogramming.org/Draw_Evaluation)
 - **Ordenación de jugadas**: [Move Ordering](https://chessprogramming.org/Move_Ordering) · [MVV-LVA](https://chessprogramming.org/MVV-LVA) · [Killer Heuristic](https://chessprogramming.org/Killer_Heuristic) · [History Heuristic](https://chessprogramming.org/History_Heuristic) · [Countermove Heuristic](https://chessprogramming.org/Countermove_Heuristic)
 - **Tabla de transposición y paralelismo**: [Transposition Table](https://chessprogramming.org/Transposition_Table) · [Shared Hash Table](https://chessprogramming.org/Shared_Hash_Table) · [Lazy SMP](https://chessprogramming.org/Lazy_SMP)
 - **Tiempo y juego**: [Time Management](https://chessprogramming.org/Time_Management) · [Pondering](https://chessprogramming.org/Pondering) · [Playing Strength](https://chessprogramming.org/Playing_Strength) · [Opening Book](https://chessprogramming.org/Opening_Book) · [PolyGlot](https://chessprogramming.org/PolyGlot) · [Endgame Tablebases](https://chessprogramming.org/Endgame_Tablebases) · [Syzygy Bases](https://chessprogramming.org/Syzygy_Bases)
