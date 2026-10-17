@@ -8,6 +8,19 @@ class AttacksTest {
     private fun squares(vararg names: String): Bitboard = names.fold(EMPTY) { bitboard, name -> bitboard or bitboardOf(parseSquare(name)) }
 
     @Test
+    fun magicsMatchTheRays() {
+        // Every square with random occupancies (sparse and dense) and the empty and full boards
+        val random = java.util.Random(1)
+        for (square in 0 until 64) {
+            val occupancies = List(2000) { i -> if (i % 2 == 0) random.nextLong() and random.nextLong() else random.nextLong() } + listOf(EMPTY, -1L)
+            for (occupied in occupancies) {
+                assertEquals(Attacks.classicalRookAttacks(square, occupied), Attacks.rookAttacks(square, occupied))
+                assertEquals(Attacks.classicalBishopAttacks(square, occupied), Attacks.bishopAttacks(square, occupied))
+            }
+        }
+    }
+
+    @Test
     fun knight() {
         assertEquals(squares("b3", "c2"), Attacks.knightAttacks(parseSquare("a1")))
         assertEquals(8, popCount(Attacks.knightAttacks(parseSquare("e4"))))
