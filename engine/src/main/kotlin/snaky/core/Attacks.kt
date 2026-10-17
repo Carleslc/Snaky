@@ -5,9 +5,12 @@ package snaky.core
  *
  * Knights, kings and pawns use precomputed tables. Sliding pieces (bishops, rooks and queens) use magic bitboards
  * (https://www.chessprogramming.org/Magic_Bitboards): the blockers of the rays of a square, multiplied by a magic number
- * and shifted, index a table of precomputed attacks, a single lookup instead of a walk along the rays. The tables are
- * built at startup from the rays cut at their first blocker ("classical approach",
- * https://www.chessprogramming.org/Classical_Approach), which is kept as the reference.
+ * and shifted, index a table of precomputed attacks, a single lookup instead of a walk along the rays. These are fancy
+ * magics (a table of its own size and shift for each square, 107,648 entries, ~840 KiB, instead of 4096 and 512 entries
+ * per square of the plain ones), found at startup by trial and error with sparse random numbers
+ * (https://www.chessprogramming.org/Looking_for_Magics); denser magics with one index bit less for some squares are
+ * listed in https://www.chessprogramming.org/Best_Magics_so_far. The tables are built from the rays cut at their first
+ * blocker ("classical approach", https://www.chessprogramming.org/Classical_Approach), which is kept as the reference.
  */
 object Attacks {
 
@@ -83,7 +86,8 @@ object Attacks {
     /**
      * Magic bitboards of a sliding piece ("fancy" magics: each square has its own shift and part of a shared table).
      * The relevant blockers of a square are the squares of its rays except the edges (a piece on the edge cannot hide
-     * anything behind it), and each subset of them indexes the attacks with `(blockers * magic) >>> shift`.
+     * anything behind it), and each subset of them indexes the attacks with `(blockers * magic) >>> shift`. Different
+     * subsets may share an entry when they give the same attacks (constructive collisions).
      */
     private class Magics(attacksOf: (Square, Bitboard) -> Bitboard) {
         private val masks = LongArray(64)
