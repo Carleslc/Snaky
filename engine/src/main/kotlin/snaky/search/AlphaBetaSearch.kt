@@ -317,6 +317,14 @@ class AlphaBetaSearch(
                 continue
             }
 
+            // SEE pruning: a late quiet move near the leaves that leaves the moved piece en prise (losing more than a margin
+            // per remaining ply in the exchanges on its square) is not searched
+            if (canPrune && legalMoves > 0 && depth <= SEE_QUIET_MAX_DEPTH && isQuiet(move) && !isKiller(move, ply) &&
+                !StaticExchange.isAtLeast(position, move, -SEE_QUIET_MARGIN * depth)) {
+                quietsSearched[ply][quiets++] = move.bits
+                continue
+            }
+
             position.makeMove(move)
             if (position.leftKingInCheck()) {
                 position.unmakeMove(move)
@@ -670,6 +678,10 @@ class AlphaBetaSearch(
 
         /** Entries of the evaluation cache (a power of 2): 3 MB for each thread. */
         private const val EVAL_CACHE_SIZE = 1 shl 18
+
+        /** SEE pruning of quiet moves: up to this depth, a margin per ply. */
+        private const val SEE_QUIET_MAX_DEPTH = 6
+        private const val SEE_QUIET_MARGIN = 60
 
         private const val NULL_MOVE_MIN_DEPTH = 3
         private const val NULL_MOVE_REDUCTION = 3
