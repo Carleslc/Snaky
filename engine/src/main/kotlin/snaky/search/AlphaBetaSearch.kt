@@ -324,6 +324,11 @@ class AlphaBetaSearch(
                 quietsSearched[ply][quiets++] = move.bits
                 continue
             }
+            // And a late capture that loses material in the exchanges (more than a margin growing with the depth)
+            if (canPrune && legalMoves > 0 && depth <= SEE_CAPTURE_MAX_DEPTH && !isQuiet(move) && !move.isPromotion &&
+                !StaticExchange.isAtLeast(position, move, -SEE_CAPTURE_MARGIN * depth * depth)) {
+                continue
+            }
 
             position.makeMove(move)
             if (position.leftKingInCheck()) {
@@ -692,6 +697,10 @@ class AlphaBetaSearch(
         /** SEE pruning of quiet moves: up to this depth, a margin per ply. */
         private const val SEE_QUIET_MAX_DEPTH = 6
         private const val SEE_QUIET_MARGIN = 60
+
+        /** SEE pruning of captures: up to this depth, a margin per squared ply. */
+        private const val SEE_CAPTURE_MAX_DEPTH = 6
+        private const val SEE_CAPTURE_MARGIN = 20
 
         private const val NULL_MOVE_MIN_DEPTH = 3
         private const val NULL_MOVE_REDUCTION = 3
