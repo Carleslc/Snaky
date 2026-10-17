@@ -306,6 +306,33 @@ class AlphaBetaSearch(
             }
         }
 
+        // ProbCut: a capture that beats beta by a margin in a shallower search very likely beats beta in the full search
+        if (canPrune && depth >= PROBCUT_MIN_DEPTH) {
+            val probCutBeta = beta + PROBCUT_MARGIN
+            val captures = moveLists[ply]
+            MoveGenerator.generatePseudoLegal(position, captures, tacticalOnly = true)
+            for (i in 0 until captures.size) {
+                val move = captures[i]
+                // Only the captures that can win the margin by their exchanges
+                if (!StaticExchange.isAtLeast(position, move, probCutBeta - staticEval)) continue
+                position.makeMove(move)
+                if (position.leftKingInCheck()) {
+                    position.unmakeMove(move)
+                    continue
+                }
+                var score = -quiescence(ply + 1, -probCutBeta, -probCutBeta + 1)
+                if (score >= probCutBeta) {
+                    score = -negamax(depth - PROBCUT_REDUCTION, ply + 1, -probCutBeta, -probCutBeta + 1, onPv = false)
+                }
+                position.unmakeMove(move)
+                if (aborted) return 0
+                if (score >= probCutBeta) {
+                    transpositionTable?.store(position.key, move, TranspositionTable.scoreToTable(score, ply), depth - PROBCUT_REDUCTION + 1, TranspositionTable.LOWER_BOUND)
+                    return score
+                }
+            }
+        }
+
         val moves = moveLists[ply]
         MoveGenerator.generatePseudoLegal(position, moves)
         val pvMove = if (onPv && ply < previousPv.size) Move(previousPv[ply]) else Move.NONE
@@ -709,6 +736,11 @@ class AlphaBetaSearch(
         /** SEE pruning of captures: up to this depth, a margin per squared ply. */
         private const val SEE_CAPTURE_MAX_DEPTH = 6
         private const val SEE_CAPTURE_MARGIN = 20
+
+        /** ProbCut: from this depth, captures beating beta by the margin in a search this much shallower. */
+        private const val PROBCUT_MIN_DEPTH = 5
+        private const val PROBCUT_MARGIN = 200
+        private const val PROBCUT_REDUCTION = 4
 
         private const val NULL_MOVE_MIN_DEPTH = 3
         private const val NULL_MOVE_REDUCTION = 3
