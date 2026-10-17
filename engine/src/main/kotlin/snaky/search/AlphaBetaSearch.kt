@@ -58,10 +58,23 @@ import java.util.concurrent.atomic.AtomicBoolean
  * of the position after it for the opponent).
  */
 class AlphaBetaSearch(
-    var evaluator: Evaluator = MaterialEvaluator(),
+    evaluator: Evaluator = MaterialEvaluator(),
     /** Null to search without transposition table (to test it). */
     val transpositionTable: TranspositionTable? = TranspositionTable(),
 ) : Search {
+
+    var evaluator: Evaluator = evaluator
+        set(value) {
+            field = value
+            evalCacheKeys.fill(0) // The cached evaluations are of the previous evaluator
+        }
+
+    /**
+     * Static evaluations of the last positions evaluated, by key (an evaluation cache): the search evaluates
+     * the same positions again through transpositions, the quiescence search and the iterations.
+     */
+    private val evalCacheKeys = LongArray(EVAL_CACHE_SIZE)
+    private val evalCacheScores = IntArray(EVAL_CACHE_SIZE)
 
     /**
      * Helper of a parallel search (see [ParallelSearch]): it does not start a new search in the shared
@@ -452,7 +465,17 @@ class AlphaBetaSearch(
     }
 
     /** Static evaluation, scaled down as the fifty-move counter grows (no progress: closer to a draw). */
-    private fun evaluate(): Int = evaluator.evaluate(position) * (PROGRESS_SCALE - position.halfmoveClock) / PROGRESS_SCALE
+    private fun evaluate(): Int {
+        val key = position.key
+        val index = (key xor (key ushr 32)).toInt() and (EVAL_CACHE_SIZE - 1)
+        val score = if (evalCacheKeys[index] == key && key != 0L) evalCacheScores[index] else {
+            evaluator.evaluate(position).also {
+                evalCacheKeys[index] = key
+                evalCacheScores[index] = it
+            }
+        }
+        return score * (PROGRESS_SCALE - position.halfmoveClock) / PROGRESS_SCALE
+    }
 
     /**
      * Root moves that keep the best result according to the tablebases (null if the position is not in them):
@@ -644,6 +667,9 @@ class AlphaBetaSearch(
         /** Depth stored in the transposition table for tablebase results (they are exact). */
         private const val TABLEBASE_DEPTH_BONUS = 6
         private const val TABLEBASE_RANK = 1000
+
+        /** Entries of the evaluation cache (a power of 2): 3 MB for each thread. */
+        private const val EVAL_CACHE_SIZE = 1 shl 18
 
         private const val NULL_MOVE_MIN_DEPTH = 3
         private const val NULL_MOVE_REDUCTION = 3
