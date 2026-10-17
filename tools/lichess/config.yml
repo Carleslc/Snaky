@@ -18,7 +18,7 @@ engine:
   draw_or_resign:
     resign_enabled: true            # Resign lost positions...
     resign_score: -3000             # ...when the score is this low (centipawns; a queen is ~2300 in the middlegame, ~800 in endgames)...
-    resign_moves: 5                 # ...for this number of moves in a row
+    resign_moves: 11                # ...for this number of moves in a row (odd: it resigns after a move of the opponent)
     resign_for_egtb_minus_two: false  # Do not resign when online_egtb says the game is lost: the opponent may still err
     offer_draw_enabled: true        # Offer and accept draws in dead equal endgames
     offer_draw_score: 0             # ...when the score is within this margin (centipawns)...
@@ -54,7 +54,7 @@ engine:
       enabled: false                # Gaviota: another format of tablebases, with distance to mate
 
   uci_options:
-    Style: Full                     # Full (the strongest, plays the bot), Space (the constrictor), Material or Greedy (weakest)
+    Style: Space                    # Space (the constrictor, plays the bot), Full (as strong, less constrictor), Material or Greedy (weakest)
     OwnBook: true                   # Opening book of Snaky (Opening: KingsIndian, French... to play only one opening)
     SyzygyPath: "tools/syzygy"      # Replaced by run.sh with the absolute path of the tablebases (if downloaded)
     # UCI_LimitStrength: true       # A weaker bot: UCI_Elo from 900 to 2800 in steps of 100

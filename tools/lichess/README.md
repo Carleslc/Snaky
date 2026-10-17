@@ -76,12 +76,12 @@ The offline test plays against Snaky with the greedy search, because the image h
 
 [`config.yml`](config.yml) sets:
 
-- **Engine**: style Full, the strongest (UCI option `Style`), 4 threads (`Threads`, up to the cores of the machine), 256 MB of hash
+- **Engine**: style Space, the constrictor (UCI option `Style`), 4 threads (`Threads`, up to the cores of the machine), 256 MB of hash
   and pondering (`ponder: true`: Snaky thinks on the opponent's time, in real-time games; not in correspondence games).
 - **Challenges**: one game at a time, standard chess and Chess960, from bullet to classical (1 to 60 minutes, increment up to 30 s)
   and correspondence (1 to 14 days per move: Snaky thinks 1 minute per move and only takes the game slot while it plays),
   casual and rated, from humans and bots.
-- **Draws and resignation**: Snaky resigns after 5 moves below −30 pawns and offers or accepts draws
+- **Draws and resignation**: Snaky resigns after 11 moves below −30 pawns (after a move of the opponent) and offers or accepts draws
   in dead equal endgames (score 0 for 10 moves, with 10 pieces or fewer).
 - **Time**: lichess-bot keeps 1 s for network delays (`move_overhead`) and Snaky 100 ms (`Move Overhead`):
   increase them if the bot loses on time.
@@ -93,7 +93,7 @@ The offline test plays against Snaky with the greedy search, because the image h
   The other books and analysis of lichess-bot (`polyglot`, `online_moves`, `lichess_bot_tbs`) are disabled:
   Snaky plays every other move. Snaky does not resign or offer draws because of the online tablebases, as the opponent may still err.
 
-To run another style (Space, the constrictor, Material or Greedy), change `Style` in `config.yml`; each style needs its own BOT account
+To run another style (Full, as strong but less constrictor, Material or Greedy), change `Style` in `config.yml`; each style needs its own BOT account
 to run at the same time.
 
 ## Chat commands

@@ -228,7 +228,7 @@ Lazy SMP searches about 2.5 times more nodes per second with 4 threads, about +5
 (v1.01: +89 for Space and +119 for Full).
 
 At 2+1, closer to a real game, v1.01 with 4 threads scored 35% in 50 games against Stockfish 3000 (1 thread),
-**~2890 ± 75**, the same as at 10+0.1. So the Lichess bot (Full, 4 threads) plays at about **2850–2900**
+**~2890 ± 75**, the same as at 10+0.1. So the Lichess bot (Space, 4 threads) plays at about **2850–2900**
 in the scale of Stockfish. This is not comparable with CCRL, where both engines play with one thread (see below).
 
 ### Strength levels (UCI_Elo)
@@ -286,7 +286,7 @@ How to get a real CCRL rating is described in the [PRD](docs/PRD.md) (§9, CCRL)
 Snaky can play on Lichess as a BOT with [lichess-bot](tools/lichess) (`LICHESS_BOT_TOKEN=xxx tools/lichess/run.sh`,
 or on a server with Docker, so it stays online when your computer is off):
 challenge it from your account, from the web or from an electronic board connected to Lichess (for instance, the ChessUp 2 connects to Lichess directly, and [chessconnect](https://chessconnect.de/) connects many boards to Lichess). A bot plays one configuration,
-so the bot plays the strongest style, Full, with 4 threads, pondering, its opening book and the tablebases (set `UCI_LimitStrength` and `UCI_Elo` in its configuration for a weaker bot). ChessConnect only connects boards to online sites, not to local engines, so playing on the board against a local Snaky needs the Lichess bot.
+so the bot plays the constrictor style, Space, with 4 threads, pondering, its opening book and the tablebases (set `UCI_LimitStrength` and `UCI_Elo` in its configuration for a weaker bot). ChessConnect only connects boards to online sites, not to local engines, so playing on the board against a local Snaky needs the Lichess bot.
 To watch Snaky play, [`tools/lichess/challenge.py`](tools/lichess/README.md#challenge-to-watch-a-game) makes the bot challenge a player or an online bot of similar rating.
 
 Games are saved in PGN, so they can be opened with the viewer (`python tools/game.py games/last.pgn`) or analyzed in Lichess or Chess.com.

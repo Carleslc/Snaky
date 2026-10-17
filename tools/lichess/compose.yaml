@@ -10,6 +10,7 @@ services:
       context: ../..
       dockerfile: tools/lichess/Dockerfile
     image: snaky-bot
+    container_name: snaky-bot
     restart: unless-stopped
     env_file:
       - path: .env
