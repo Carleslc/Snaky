@@ -82,7 +82,8 @@ The offline test plays against Snaky with the greedy search, because the image h
   and correspondence (1 to 14 days per move: Snaky thinks 1 minute per move and only takes the game slot while it plays),
   casual and rated, from humans and bots.
 - **Draws and resignation**: Snaky resigns after 11 moves below −30 pawns (after a move of the opponent) and offers or accepts draws
-  in dead equal endgames (score 0 for 10 moves, with 10 pieces or fewer).
+  in drawn endgames: with 7 pieces or fewer, a score from −0.25 to 0 for 10 moves (a draw is −0.15, the contempt;
+  [`snaky_bot.py`](snaky_bot.py) adds the upper bound, so Snaky does not offer draws when it is slightly better).
 - **Time**: lichess-bot keeps 1 s for network delays (`move_overhead`) and Snaky 100 ms (`Move Overhead`):
   increase them if the bot loses on time.
 - The opening book and the Syzygy tablebases of Snaky (`OwnBook`, `SyzygyPath`, up to 5 pieces), and the online tablebases
