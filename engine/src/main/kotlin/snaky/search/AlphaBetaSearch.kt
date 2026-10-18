@@ -101,6 +101,8 @@ class AlphaBetaSearch(
     private var tablebaseRootMoves: List<Move>? = null
     /** Score of the root according to the tablebases, reported instead of the search score (but for mates). */
     private var tablebaseRootScore: Int? = null
+    /** The root is a tablebase draw: the draws found inside the search do not cut it (see [negamax]). */
+    private var tablebaseRootDraw = false
 
     /** Nodes searched in the current search (read by the parallel search to report the total). */
     val searchedNodes: Long get() = nodes
@@ -168,6 +170,7 @@ class AlphaBetaSearch(
         val legalRootMoves = MoveGenerator.legalMoves(position).toList().filter { limits.searchMoves.isEmpty() || it in limits.searchMoves }
         require(legalRootMoves.isNotEmpty()) { "No legal moves to search" }
         tablebaseRootScore = null
+        tablebaseRootDraw = false
         tablebaseRootMoves = rankByTablebases(legalRootMoves)
         val rootMoves = tablebaseRootMoves ?: legalRootMoves
 
@@ -267,8 +270,12 @@ class AlphaBetaSearch(
         val tablebases = tablebases
         if (tablebases != null && ply > 0 && depth >= tablebaseProbeDepth && position.halfmoveClock == 0 && tablebases.covers(position)) {
             val wdl = tablebases.probeWdl(position)
-            if (wdl != null) {
-                tablebaseHits++
+            // When the root is already a tablebase draw, the draws do not cut: the search goes on with the evaluation,
+            // to choose among the drawing moves the ones that give the opponent more chances to err (a passed pawn
+            // that advances, instead of moves that the tablebase scores the same)
+            val keepSearching = tablebaseRootDraw && wdl != null && wdl != Syzygy.WIN && wdl != Syzygy.LOSS
+            if (wdl != null) tablebaseHits++
+            if (wdl != null && !keepSearching) {
                 val score = when {
                     wdl == Syzygy.WIN -> Score.TABLEBASE_WIN - ply
                     wdl == Syzygy.LOSS -> -Score.TABLEBASE_WIN + ply
@@ -573,6 +580,7 @@ class AlphaBetaSearch(
             best < 0 && best == -TABLEBASE_RANK -> -Score.TABLEBASE_WIN - dtz[chosen.first()]
             else -> drawScore() // A draw, or a win or loss that the fifty-move rule turns into a draw
         }
+        tablebaseRootDraw = !(best == TABLEBASE_RANK || best == -TABLEBASE_RANK)
         return chosen.map { moves[it] }
     }
 

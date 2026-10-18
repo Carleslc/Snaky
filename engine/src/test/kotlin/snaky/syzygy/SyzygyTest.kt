@@ -2,6 +2,7 @@ package snaky.syzygy
 
 import snaky.core.Notation
 import snaky.core.Position
+import snaky.eval.SpaceEvaluator
 import snaky.search.AlphaBetaSearch
 import snaky.search.Score
 import snaky.search.SearchLimits
@@ -66,5 +67,16 @@ class SyzygyTest {
         val draw = AlphaBetaSearch().apply { this.tablebases = this@SyzygyTest.tablebases }
             .search(Position.fromFen("8/8/8/8/3k4/8/3K4/4N1N1 b - - 0 1"), SearchLimits(depth = 6), AtomicBoolean())
         assertEquals(Score.DRAW, draw.score)
+    }
+
+    @Test
+    fun drawnEndgameKeepsTheChances() {
+        if (tablebases == null) return
+        // KBP vs KB with opposite-colored bishops is a draw: every move draws, but advancing the passed pawn gives the
+        // opponent more chances to err than moving the king around (the tablebase draws do not cut the search)
+        val search = AlphaBetaSearch(SpaceEvaluator()).apply { this.tablebases = this@SyzygyTest.tablebases }
+        val result = search.search(Position.fromFen("8/8/8/3B1K2/1b2P3/8/2k5/8 w - - 5 270"), SearchLimits(depth = 16), AtomicBoolean())
+        assertEquals("e4e5", Notation.toUci(Position.fromFen("8/8/8/3B1K2/1b2P3/8/2k5/8 w - - 5 270"), result.bestMove))
+        assertTrue(Math.abs(result.score) <= SpaceEvaluator().contempt, "${result.score}") // Reported as a draw
     }
 }
