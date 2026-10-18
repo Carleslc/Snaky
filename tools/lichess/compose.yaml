@@ -20,6 +20,8 @@ services:
     volumes:
       # Syzygy tablebases downloaded in tools/syzygy (optional, see tools/README.md)
       - ../syzygy:/syzygy:ro
+      # Pause of the challenges of bots (challenge.py --pause and --resume, also from the computer)
+      - ./state:/snaky-tools/state
       # Uncomment to use another configuration (style, Elo, accepted challenges...) without rebuilding the image
       # - ./config.yml:/snaky-config/config.yml:ro
     # Each game thinks with 4 threads and 256 MB of hash (config.yml): one game at a time is accepted, and a second one

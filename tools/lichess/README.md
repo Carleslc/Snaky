@@ -124,6 +124,8 @@ python challenge.py --bot --tc 3+2 --min-rating 2600 --max-rating 3000 --variant
 python challenge.py --bot --tc 3+2 --list                # only list the bots it would challenge
 python challenge.py --accept                             # list the challenges to Snaky
 python challenge.py --accept someone                     # accept the challenge of someone (or its ID)
+python challenge.py --pause                              # decline the challenges of bots, until --resume
+python challenge.py --resume
 ```
 
 It prints the link of the game to watch it. With Docker (on a server), run it in a new container of the image:
@@ -133,7 +135,11 @@ It does not challenge while Snaky is playing, and it cancels the challenge if Sn
 while Snaky plays, but it plays every game that starts: a second game at the same time can be started by hand, challenging
 with `--force` (both challenges with `--force` to send two at once) or accepting a waiting challenge with `--accept`.
 Each game thinks with its own 4 threads: with `cpus: 8` in `compose.yaml` (and at least 8 CPUs for Docker Desktop)
-two games do not slow each other down. While the rating of Snaky is provisional
+two games do not slow each other down.
+To keep Snaky free when you want to challenge a bot or play it, `--pause` declines the challenges of bots
+("not accepting challenges at the moment") until `--resume`, while the challenges of players and those of `challenge.py`
+are still played ([`snaky_bot.py`](snaky_bot.py) reads the file `state/paused`, a volume of `compose.yaml`).
+While the rating of Snaky is provisional
 (its first games), `--bot` looks for bots from 2200 to 2800. Bots can play 100 games a day against other bots
 (unlimited against humans).
 

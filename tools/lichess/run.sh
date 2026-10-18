@@ -32,6 +32,8 @@ sed -e "s|^  dir: .*|  dir: \"$ROOT/engine/build/install/snaky/bin/\"|" \
 # lichess-bot with the chat commands of Snaky (!explain)
 cp "$DIR/snaky_bot.py" "$LICHESS_BOT_DIR/snaky_bot.py"
 
+# Pause of the challenges of bots (challenge.py --pause and --resume)
+export SNAKY_PAUSE_FILE="$DIR/state/paused"
 cd "$LICHESS_BOT_DIR"
 if [ -d venv ]; then
   . venv/bin/activate

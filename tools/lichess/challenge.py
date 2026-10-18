@@ -14,10 +14,15 @@ python challenge.py --bot --tc 3+2 --min-rating 2200 --max-rating 2600 --variant
 python challenge.py --bot --tc 3+2 --list
 python challenge.py --accept
 python challenge.py --accept someone
+python challenge.py --pause
+python challenge.py SomeBot --pause
+python challenge.py --resume
 
 lichess-bot accepts one game at a time (concurrency in config.yml), but plays every game that starts: a second game
 can be started by hand while Snaky plays, challenging with --force or accepting with --accept a challenge that
 lichess-bot keeps waiting (two games at once need cpus: 8 in compose.yaml, as each game thinks with 4 threads).
+--pause declines the challenges of bots ("not accepting challenges at the moment") until --resume, so that Snaky is free
+when you want to challenge a bot or play it: the challenges of players and those of challenge.py are still played.
 
 The token is read from LICHESS_BOT_TOKEN, or from the .env file of this folder.
 '''
@@ -35,6 +40,9 @@ import urllib.request
 from pathlib import Path
 
 API = 'https://lichess.org'
+
+# File that pauses the challenges of bots while it exists, read by snaky_bot.py (state/ is a volume of compose.yaml)
+PAUSE_FILE = Path(os.environ.get('SNAKY_PAUSE_FILE') or Path(__file__).resolve().parent / 'state' / 'paused')
 
 # Seconds between the checks that Snaky is not playing another game while it waits for an answer
 PLAYING_CHECK_INTERVAL = 5
@@ -62,10 +70,14 @@ def set_args():
   parser.add_argument("--list", help="list the bots that --bot would challenge, without challenging them", action='store_true')
   parser.add_argument("--force", help="challenge even if Snaky is playing (or starts) another game", action='store_true')
   parser.add_argument("--accept", help="accept the challenge to Snaky of username (or its ID), even if Snaky is playing; without username, list the challenges", action='store_true')
+  parser.add_argument("--pause", help="decline the challenges of bots until --resume (players and the challenges of challenge.py are still played)", action='store_true')
+  parser.add_argument("--resume", help="accept again the challenges of bots", action='store_true')
   args = parser.parse_args()
   if args.accept and args.bot:
     parser.error('--accept does not take --bot')
-  if not args.accept and bool(args.username) == args.bot:
+  if args.pause and args.resume:
+    parser.error('give --pause or --resume')
+  if not (args.accept or args.pause or args.resume) and bool(args.username) == args.bot:
     parser.error('give a username or --bot')
 
 def read_token() -> str:
@@ -190,8 +202,23 @@ def online_bots(me: dict) -> list[str]:
   random.shuffle(bots)
   return bots
 
+def pause():
+  PAUSE_FILE.parent.mkdir(parents=True, exist_ok=True)
+  PAUSE_FILE.touch()
+  print('Paused: Snaky declines the challenges of bots (players and the challenges of challenge.py are played), --resume to accept them again')
+
+def resume():
+  PAUSE_FILE.unlink(missing_ok=True)
+  print('Resumed: Snaky accepts the challenges of bots')
+
 if __name__ == "__main__":
   set_args()
+  if args.pause:
+    pause()
+  elif args.resume:
+    resume()
+  if not (args.username or args.bot or args.accept):
+    sys.exit()
   TOKEN = read_token()
   me = get_json('/api/account')
   if me.get('title') != 'BOT':

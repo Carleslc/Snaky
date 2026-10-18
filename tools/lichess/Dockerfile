@@ -26,6 +26,7 @@ ENV JAVA_HOME=/opt/java/openjdk \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     LICHESS_BOT_DOCKER=true \
+    SNAKY_PAUSE_FILE=/snaky-tools/state/paused \
     SNAKY_OPTS="-XX:MaxRAMPercentage=50"
 COPY --from=eclipse-temurin:17-jre /opt/java/openjdk /opt/java/openjdk
 COPY --from=lichess-bot /lichess-bot /lichess-bot

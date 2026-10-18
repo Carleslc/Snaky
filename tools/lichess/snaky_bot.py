@@ -12,7 +12,11 @@ searching, unlike !eval), for the current position or after a move (!explain 23 
 The online tablebases (online_egtb) only play won endgames, and in drawn endgames they leave Snaky the choice among
 the drawing moves (see snaky_egtb_move). Draws are offered or accepted with a score from -offer_draw_score to
 DRAW_SCORE_ABOVE (see snaky_offer_draw_or_resign).
+
+While paused (challenge.py --pause), the challenges of bots are declined as "not accepting challenges at the moment",
+but the challenges of players and the challenges sent with challenge.py are played (see snaky_is_supported).
 """
+import logging
 import os
 import subprocess
 import sys
@@ -22,7 +26,7 @@ import time
 import chess
 import yaml
 
-from lib import engine_wrapper, lichess_bot
+from lib import engine_wrapper, lichess_bot, model
 from lib.conversation import ChatLine, Conversation
 from lib.lichess import MAX_CHAT_MESSAGE_LEN
 
@@ -168,10 +172,52 @@ def snaky_egtb_move(li, game, board: chess.Board, quality: str, variant: str):
     return lichess_egtb_move(li, game, board, "suggest", variant)
 
 
+# File that pauses the challenges of bots while it exists (challenge.py --pause and --resume), given by run.sh and the
+# Docker image
+PAUSE_FILE = os.environ.get("SNAKY_PAUSE_FILE")
+
+logger = logging.getLogger(__name__)
+
+
+def paused() -> bool:
+    return bool(PAUSE_FILE) and os.path.exists(PAUSE_FILE)
+
+
+def declined_while_paused(challenge: model.Challenge) -> bool:
+    return challenge.challenger.is_bot and not challenge.from_self
+
+
+lichess_is_supported = model.Challenge.is_supported
+
+
+def snaky_is_supported(self, *args, **kwargs):
+    """The challenges that lichess-bot accepts, except those of bots while paused ("later": not at the moment)."""
+    if paused() and declined_while_paused(self):
+        return False, "later"
+    return lichess_is_supported(self, *args, **kwargs)
+
+
+lichess_accept_challenges = lichess_bot.accept_challenges
+
+
+def snaky_accept_challenges(li, challenge_queue, *args, **kwargs):
+    """Accepts the challenges waiting while Snaky played, but declines those of bots if it has been paused since."""
+    if paused():
+        declined = [challenge for challenge in challenge_queue if declined_while_paused(challenge)]
+        if declined:
+            challenge_queue[:] = [challenge for challenge in challenge_queue if not declined_while_paused(challenge)]
+            for challenge in declined:
+                logger.info(f"Decline {challenge} (paused)")
+                li.decline_challenge(challenge.id, reason="later")
+    lichess_accept_challenges(li, challenge_queue, *args, **kwargs)
+
+
 # Replaced at import, also in the processes of the games (multiprocessing imports this module again)
 lichess_bot.Conversation = SnakyConversation
 engine_wrapper.get_lichess_egtb_move = snaky_egtb_move
 engine_wrapper.EngineWrapper.offer_draw_or_resign = snaky_offer_draw_or_resign
+model.Challenge.is_supported = snaky_is_supported
+lichess_bot.accept_challenges = snaky_accept_challenges
 
 if __name__ == "__main__":
     lichess_bot.start_program()

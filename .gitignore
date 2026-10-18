@@ -27,3 +27,4 @@ engines/
 
 # Secrets of the Lichess bot
 tools/lichess/.env
+tools/lichess/state/
