@@ -307,7 +307,7 @@ En CPU:
 
 ### CCRL
 
-La escala `UCI_Elo` de Stockfish está ajustada con partidas contra versiones del motor Stash con rating CCRL Blitz, a 120+1 (`search.h`: de 1320 a 3190; las anclas de Stash están a ±100 Elo de CCRL y la más alta es 2744). Por eso la calibración contra Stockfish limitado da una estimación aproximada del rating en **CCRL Blitz**. A 2+1 Snaky rinde unos 100 Elo más que a 10+0,1 contra Stockfish 2800 (v1.02: Space 61 %, Full 60 %, 40 partidas cada uno; v1.0: 61 % y 55 %), así que la estimación actual es de **~2800–2850 en CCRL Blitz** (puesto ~295–310 de ~890) y ~2770–2820 en CCRL 40/2 FRC si jugara Chess960 (puesto ~105–110 de 151). Detalles en el README (*Versions and styles*).
+La escala `UCI_Elo` de Stockfish está ajustada con partidas contra versiones del motor Stash con rating CCRL Blitz, a 120+1 (`search.h`: de 1320 a 3190; las anclas de Stash están a ±100 Elo de CCRL y la más alta es 2744). Por eso la calibración contra Stockfish limitado da una estimación aproximada del rating en **CCRL Blitz**. A 2+1 Snaky rinde más que a 10+0,1 contra Stockfish 2800 (v1.03: Space 50 % y Full 80 %, 40 partidas cada uno, 65 % entre los dos; v1.02: 61 % y 60 %), así que la estimación actual es de **~2850–2950 en CCRL Blitz** (puesto ~277–297 de 890, junto a OliThink 5.10.5, Murka 3 o Daydreamer 2.0.0-pre2) y ~2860–2900 en CCRL 40/2 FRC (puesto ~101–104 de 151). Detalles en el README (*Versions and styles*).
 
 Listas y condiciones (máquina de referencia Intel i7-4770K, con el tiempo escalado según el `bench` de Stockfish 10 en la máquina del probador; *pondering* desactivado; sin aprendizaje; tablas de finales de hasta 6 piezas):
 
@@ -622,7 +622,7 @@ Resultados: Elo del SPRT contra la versión anterior (partidas entre paréntesis
 | **v1.0** | Motor nuevo: bitboards, búsqueda alfa-beta completa (Fases 3–4), evaluación Constrictor (Space), Full, Material y Greedy, Texel, Lazy SMP, *pondering* | Space 2746 ± 40, Full 2741 ± 40 | 285 / 283 | 10.875 / 10.868 | ~780 k nodos/s |
 | **v1.01** | Libro de aperturas, tablas Syzygy, Chess960, niveles de fuerza (`UCI_Elo`), 4 hilos y 256 MB por defecto, BOT en Lichess, nombre Snaky | Igual que v1.0 con 1 hilo; con 4 hilos 2843 (Space) y 2894 (Full) | | | |
 | **v1.02** | Términos de finales, Full reajustado con partidas reales, límite de tiempo con poco reloj; en el BOT, tablas online de 7 piezas, `!explain`, GPLv3 | Space 2736 ± 40, Full 2738 ± 40 | 282 / 280 | 10.821 / 10.783 | ~830 k nodos/s (`bench 13`) |
-| **v1.03** | Magic bitboards, caché de evaluaciones, podas por SEE, extensión de jaque por SEE, *improving*, ProbCut, niveles de fuerza recalibrados | Space 2782 ± 41, Full 2806 ± 41 | 283 / 281 | 11.152 / 11.193 | ~1,0 M nodos/s (`bench 13`) |
+| **v1.03** | Magic bitboards, caché de evaluaciones, podas por SEE, extensión de jaque por SEE, *improving*, ProbCut, niveles de fuerza recalibrados | Space 2782 ± 41, Full 2806 ± 41; con libro y 4 hilos 2928 y 2938; Material ~2590 | 283 / 281 | 11.152 / 11.193 | ~1,0 M nodos/s (`bench 13`) |
 
 Los Elo de v1.02 y v1.03 se miden de 2400 a 3000 y de 2600 a 3190 respectivamente, con aperturas equilibradas; los de v1.01, con el libro desde la posición inicial. WAC y STS: Space / Full.
 
