@@ -12,6 +12,12 @@ python challenge.py someone --days 3 --color white
 python challenge.py --bot --tc 5+3 --rated
 python challenge.py --bot --tc 3+2 --min-rating 2200 --max-rating 2600 --variant chess960
 python challenge.py --bot --tc 3+2 --list
+python challenge.py --accept
+python challenge.py --accept someone
+
+lichess-bot accepts one game at a time (concurrency in config.yml), but plays every game that starts: a second game
+can be started by hand while Snaky plays, challenging with --force or accepting with --accept a challenge that
+lichess-bot keeps waiting (two games at once need cpus: 8 in compose.yaml, as each game thinks with 4 threads).
 
 The token is read from LICHESS_BOT_TOKEN, or from the .env file of this folder.
 '''
@@ -42,7 +48,7 @@ SPEEDS = [(29, 'ultraBullet'), (179, 'bullet'), (479, 'blitz'), (1499, 'rapid'),
 def set_args():
   global args
   parser = argparse.ArgumentParser()
-  parser.add_argument("username", help="player or bot to challenge (or --bot)", nargs='?')
+  parser.add_argument("username", help="player or bot to challenge (or --bot), or whose challenge to accept (--accept)", nargs='?')
   parser.add_argument("--bot", help="challenge an online bot with a rating close to Snaky, until one accepts", action='store_true')
   parser.add_argument("--tc", help="time control in minutes+seconds of increment (default: 3+2)", default='3+2')
   parser.add_argument("--days", help="correspondence game with these days per move (1, 2, 3, 5, 7, 10 or 14) instead of --tc", type=int)
@@ -55,8 +61,11 @@ def set_args():
   parser.add_argument("--wait", help="seconds to wait for each answer (default: 60, 15 for bots)", type=int)
   parser.add_argument("--list", help="list the bots that --bot would challenge, without challenging them", action='store_true')
   parser.add_argument("--force", help="challenge even if Snaky is playing (or starts) another game", action='store_true')
+  parser.add_argument("--accept", help="accept the challenge to Snaky of username (or its ID), even if Snaky is playing; without username, list the challenges", action='store_true')
   args = parser.parse_args()
-  if bool(args.username) == args.bot:
+  if args.accept and args.bot:
+    parser.error('--accept does not take --bot')
+  if not args.accept and bool(args.username) == args.bot:
     parser.error('give a username or --bot')
 
 def read_token() -> str:
@@ -147,6 +156,21 @@ def cancel(challenge_id: str | None):
     with contextlib.suppress(urllib.error.URLError):
       request('POST', f'/api/challenge/{challenge_id}/cancel').close()
 
+def accept(username: str | None):
+  '''Accepts the challenge to Snaky of [username] (or with that ID), or lists the challenges without [username].'''
+  challenges = get_json('/api/challenge').get('in', [])
+  if not username:
+    for challenge in challenges:
+      clock = challenge.get('timeControl', {}).get('show', 'correspondence')
+      print(f'{challenge["challenger"]["name"]} ({challenge["id"]}): {clock}, {challenge["variant"]["key"]}, '
+            f'{"rated" if challenge["rated"] else "casual"}')
+    sys.exit(None if challenges else 'No challenges')
+  challenge = next((challenge for challenge in challenges if username.lower() in (challenge['id'].lower(), challenge['challenger']['id'])), None)
+  if not challenge:
+    sys.exit(f'No challenge of {username}')
+  request('POST', f'/api/challenge/{challenge["id"]}/accept').close()
+  print(f'Watch the game: {API}/{challenge["id"]}')
+
 def online_bots(me: dict) -> list[str]:
   '''Online bots that play the speed and variant, with a rating within the range, in random order.'''
   perf = me.get('perfs', {}).get(speed(), {})
@@ -172,6 +196,9 @@ if __name__ == "__main__":
   me = get_json('/api/account')
   if me.get('title') != 'BOT':
     sys.exit(f'{me["username"]} is not a BOT account')
+  if args.accept:
+    accept(args.username)
+    sys.exit()
   if (game := playing()) and not args.force:
     sys.exit(f'{me["username"]} is playing {API}/{game} (--force to challenge anyway)')
 

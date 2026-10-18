@@ -22,6 +22,7 @@ services:
       - ../syzygy:/syzygy:ro
       # Uncomment to use another configuration (style, Elo, accepted challenges...) without rebuilding the image
       # - ./config.yml:/snaky-config/config.yml:ro
-    # One game at a time with 4 threads and 256 MB of hash (config.yml): lower Threads in config.yml on a smaller server
-    cpus: 4
-    mem_limit: 1536m
+    # Each game thinks with 4 threads and 256 MB of hash (config.yml): one game at a time is accepted, and a second one
+    # started by hand (challenge.py --force or --accept) has its own CPUs. Lower Threads in config.yml on a smaller server
+    cpus: 8
+    mem_limit: 3g

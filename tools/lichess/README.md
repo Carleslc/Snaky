@@ -47,8 +47,9 @@ Stop the bot with Ctrl+C.
 lichess-bot and Snaky run on the machine that starts them: Lichess only relays the moves. To keep the bot online
 when your computer is off, run it on a server (a VPS, a Raspberry Pi 4/5, the free tier of a cloud...) with Docker.
 The image ([`Dockerfile`](Dockerfile)) builds the engine and installs lichess-bot (a tested version, `LICHESS_BOT_COMMIT`)
-with Python and the Java runtime, for x86-64 and ARM64 servers (436 MB). One game at a time with the default configuration
-needs 4 cores and 1.5 GB of RAM; on a smaller server, lower `Threads` in `config.yml` (and `cpus` in `compose.yaml`).
+with Python and the Java runtime, for x86-64 and ARM64 servers (436 MB). Each game with the default configuration
+needs 4 cores and 1.5 GB of RAM: `compose.yaml` gives the container 8 cores and 3 GB, for a second game started by hand
+(see [Challenge to watch a game](#challenge-to-watch-a-game)); on a smaller server, lower `Threads` in `config.yml` (and `cpus` and `mem_limit` in `compose.yaml`).
 
 1. On the server, install [Docker](https://docs.docker.com/engine/install/) and clone this repository.
 2. Write the token of the BOT account in `tools/lichess/.env` (copy [`.env.example`](.env.example); it is ignored by git).
@@ -78,7 +79,7 @@ The offline test plays against Snaky with the greedy search, because the image h
 
 - **Engine**: style Space, the constrictor (UCI option `Style`), 4 threads (`Threads`, up to the cores of the machine), 256 MB of hash
   and pondering (`ponder: true`: Snaky thinks on the opponent's time, in real-time games; not in correspondence games).
-- **Challenges**: one game at a time, standard chess and Chess960, from bullet to classical (1 to 60 minutes, increment up to 30 s)
+- **Challenges**: one game at a time (`concurrency: 1`), standard chess and Chess960, from bullet to classical (1 to 60 minutes, increment up to 30 s)
   and correspondence (1 to 14 days per move: Snaky thinks 1 minute per move and only takes the game slot while it plays),
   casual and rated, from humans and bots.
 - **Draws and resignation**: Snaky resigns after 11 moves below −30 pawns (after a move of the opponent) and offers or accepts draws
@@ -121,12 +122,18 @@ python challenge.py someone --days 3 --color white       # correspondence
 python challenge.py --bot --tc 5+3 --rated               # online bots close to the rating of Snaky, until one accepts
 python challenge.py --bot --tc 3+2 --min-rating 2600 --max-rating 3000 --variant chess960
 python challenge.py --bot --tc 3+2 --list                # only list the bots it would challenge
+python challenge.py --accept                             # list the challenges to Snaky
+python challenge.py --accept someone                     # accept the challenge of someone (or its ID)
 ```
 
 It prints the link of the game to watch it. With Docker (on a server), run it in a new container of the image:
 `docker compose -f tools/lichess/compose.yaml run --rm bot challenge --bot --tc 3+2`.
 It does not challenge while Snaky is playing, and it cancels the challenge if Snaky starts another game while it waits
-(`--force` to do it anyway): two games at the same time share the processor and can lose on time. While the rating of Snaky is provisional
+(`--force` to do it anyway). lichess-bot accepts one game at a time, and keeps waiting the challenges that arrive
+while Snaky plays, but it plays every game that starts: a second game at the same time can be started by hand, challenging
+with `--force` (both challenges with `--force` to send two at once) or accepting a waiting challenge with `--accept`.
+Each game thinks with its own 4 threads: with `cpus: 8` in `compose.yaml` (and at least 8 CPUs for Docker Desktop)
+two games do not slow each other down. While the rating of Snaky is provisional
 (its first games), `--bot` looks for bots from 2200 to 2800. Bots can play 100 games a day against other bots
 (unlimited against humans).
 
