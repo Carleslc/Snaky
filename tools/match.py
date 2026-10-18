@@ -38,6 +38,7 @@ def set_args():
   parser.add_argument("--tc", help="time control in seconds: base+increment (e.g. 10+0.1)")
   parser.add_argument("--movetime", help="seconds per move when there is no time control", type=float, default=0.05)
   parser.add_argument("--random-plies", help="random plies at the start of each game, for variety", type=int, default=8)
+  parser.add_argument("--ponder", help="the engines think on the time of the opponent (go ponder, ponderhit)", action='store_true')
   parser.add_argument("--concurrency", "-c", help="games played at the same time", type=int, default=4)
   parser.add_argument("--seed", help="random seed for the openings", type=int, default=1)
   parser.add_argument("--pgn", help="file to save the games", default="games/match.pgn")
@@ -100,7 +101,7 @@ def play_game(index: int, engines: list[chess.engine.SimpleEngine], names: list[
 
     start = time.monotonic()
     try:
-      result = engine.play(board, limit, game=index)
+      result = engine.play(board, limit, game=index, ponder=args.ponder)
     except chess.engine.EngineError as e: # Includes illegal moves
       termination = 'ERROR'
       with stats.lock:

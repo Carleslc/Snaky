@@ -10,7 +10,8 @@ searching, unlike !eval), for the current position or after a move (!explain 23 
 !explain 23b after the move 23 of black). Like !eval, only for the spectators: the opponent does not get it.
 
 The online tablebases (online_egtb) only play won endgames, and in drawn endgames they leave Snaky the choice among
-the drawing moves (see snaky_egtb_move).
+the drawing moves (see snaky_egtb_move). Draws are offered or accepted with a score from -offer_draw_score to
+DRAW_SCORE_ABOVE (see snaky_offer_draw_or_resign).
 """
 import os
 import subprocess
@@ -132,6 +133,23 @@ class SnakyConversation(Conversation):
             self.send_reply(line, message)
 
 
+# Draws are offered or accepted when the score of the last moves is from -offer_draw_score (config.yml) to this, in
+# centipawns: Snaky accepts a draw when slightly worse, but keeps playing when slightly better
+DRAW_SCORE_ABOVE = 10
+
+lichess_offer_draw_or_resign = engine_wrapper.EngineWrapper.offer_draw_or_resign
+
+
+def snaky_offer_draw_or_resign(self, result, board: chess.Board):
+    """The draw offers of lichess-bot (a score within ±offer_draw_score), but not when Snaky is better by more than DRAW_SCORE_ABOVE."""
+    result = lichess_offer_draw_or_resign(self, result, board)
+    if result.draw_offered:
+        scores = self.scores[-self.draw_or_resign.offer_draw_moves:]
+        if any(score.relative.score(mate_score=40000) > DRAW_SCORE_ABOVE for score in scores):
+            result.draw_offered = False
+    return result
+
+
 lichess_egtb_move = engine_wrapper.get_lichess_egtb_move
 
 
@@ -153,6 +171,7 @@ def snaky_egtb_move(li, game, board: chess.Board, quality: str, variant: str):
 # Replaced at import, also in the processes of the games (multiprocessing imports this module again)
 lichess_bot.Conversation = SnakyConversation
 engine_wrapper.get_lichess_egtb_move = snaky_egtb_move
+engine_wrapper.EngineWrapper.offer_draw_or_resign = snaky_offer_draw_or_resign
 
 if __name__ == "__main__":
     lichess_bot.start_program()

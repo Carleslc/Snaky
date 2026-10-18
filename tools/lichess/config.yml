@@ -21,9 +21,9 @@ engine:
     resign_moves: 11                # ...for this number of moves in a row (odd: it resigns after a move of the opponent)
     resign_for_egtb_minus_two: false  # Do not resign when online_egtb says the game is lost: the opponent may still err
     offer_draw_enabled: true        # Offer and accept draws in dead equal endgames
-    offer_draw_score: 0             # ...when the score is within this margin (centipawns)...
+    offer_draw_score: 25            # ...when the score is from -25 to +10 centipawns (snaky_bot.py; a draw is -15, the contempt)...
     offer_draw_moves: 10            # ...for this number of moves in a row...
-    offer_draw_pieces: 10           # ...with this number of pieces or fewer
+    offer_draw_pieces: 7            # ...with this number of pieces or fewer
     offer_draw_for_egtb_zero: false # Do not offer draws when online_egtb says the game is drawn: the opponent may still err
 
   # Moves from online services, played by lichess-bot instead of asking Snaky: off, so that Snaky plays every move with its
