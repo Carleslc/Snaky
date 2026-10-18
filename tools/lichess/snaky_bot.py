@@ -134,8 +134,8 @@ class SnakyConversation(Conversation):
 
 
 # Draws are offered or accepted when the score of the last moves is from -offer_draw_score (config.yml) to this, in
-# centipawns: Snaky accepts a draw when slightly worse, but keeps playing when slightly better
-DRAW_SCORE_ABOVE = 10
+# centipawns: Snaky accepts a draw when equal or slightly worse, but keeps playing when it is better
+DRAW_SCORE_ABOVE = 0
 
 lichess_offer_draw_or_resign = engine_wrapper.EngineWrapper.offer_draw_or_resign
 
