@@ -72,42 +72,79 @@ Options:
   (and the options of tune: --output, --positions, --passes, --all, --freeze, --max-change)
 ```
 
-Snaky searches with alpha-beta (iterative deepening, transposition table, principal variation search, null move pruning
-with verification, late move reductions, futility pruning, static exchange evaluation, killer, history and countermove
-ordering, safe check extension and Lazy SMP for several threads), and has four playing styles
-(UCI option `Style`, `--style` in the command line):
+### UCI
+
+Commands of the UCI protocol, and some for debugging:
+
+| Command | Description |
+|---|---|
+| `uci`, `isready`, `ucinewgame`, `quit` | Identification, synchronization, new game (clears the hash) and exit |
+| `position [startpos \| fen <fen>] [moves <m1> ...]` | Sets the position, in UCI notation (in Chess960, castling as the king taking its rook) |
+| `go [wtime btime winc binc movestogo] [depth n] [nodes n] [mate n] [movetime ms] [infinite] [ponder] [searchmoves ...]` | Searches with these limits and answers `bestmove` (and `ponder`) |
+| `ponderhit`, `stop` | The opponent played the move pondered (the search goes on as a normal one), or stop now |
+| `setoption name <name> value <value>` | Changes an option (below) |
+| `d`, `moves`, `eval`, `perft <depth>`, `bench [depth]` | Debug: the position, its legal moves, its evaluation term by term, perft and the benchmark |
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `Style` | combo | Space | Playing style: Space (the constrictor), Full (all weights tuned for strength), Material (baseline) or Greedy (the weakest) |
+| `Threads` | spin 1–256 | 4 | Search threads (Lazy SMP; fewer if the machine has fewer processors). The strength levels use one |
+| `Hash` | spin 1–1024 | 256 | Size of the transposition table, in MB |
+| `Move Overhead` | spin 0–5000 | 100 | Milliseconds kept on each move for communication delays |
+| `Ponder` | check | false | Allows thinking on the opponent's time (`go ponder`, `ponderhit`) |
+| `UCI_LimitStrength` | check | false | Plays at the Elo of `UCI_Elo` instead of the full strength |
+| `UCI_Elo` | spin 900–2800 | 1500 | Elo of the strength levels, in steps of 100 (see *Strength levels*) |
+| `OwnBook` | check | false | Plays the opening book of Snaky (off by default, as rating lists require) |
+| `Opening` | combo | All | Plays only one opening of the book: KingsIndian, Benoni, French, CaroKann, Sicilian, QueensGambit, RuyLopez or Pirc |
+| `Book File` | string | | Another opening book, in Polyglot format |
+| `UCI_Chess960` | check | false | Chess960: castling in UCI as the king taking its rook |
+| `SyzygyPath` | string | `tools/syzygy` if downloaded | Folders of the Syzygy tablebases (empty: without tablebases) |
+| `SyzygyProbeDepth` | spin 1–100 | 1 | Minimum depth to probe the tablebases inside the search |
+| `Greedy Depth` | spin 1–4 | 2 | Fixed depth of the Greedy style |
+| `Weights` | string | | Weights file of the Space or Full style, instead of its tuned weights (`snaky weights` shows the format) |
+
+`./gradlew distZip` packages the engine in `build/distributions/snaky-<version>.zip`, with the launchers `bin/snaky`
+(macOS, Linux) and `bin/snaky.bat` (Windows), the license and its notice, to install it anywhere with Java 17+.
+
+## How Snaky plays
+
+Four playing styles (`Style`, `--style` in the command line):
 
 - **Space** (default): the "constrictor" evaluation. Space, square control, safe mobility and restriction of the opponent,
   with the value of each piece depending on its activity (see `snaky eval`). Its weights are tuned with Texel's method,
   keeping the style.
 - **Full**: the same evaluation with every weight tuned for strength, including the weights of the style:
-  it plays less "constrictor" (less space, fewer trapped pieces) but it is the strongest in direct games.
+  as strong as Space, it restricts the mobility of the opponent with active pieces rather than with space.
 - **Material**: material and piece-square tables, the baseline evaluation.
-- **Greedy**: a fixed-depth search counting only material (`Greedy Depth`, 2 by default), the weakest.
+- **Greedy**: a fixed-depth search counting only material (`Greedy Depth`), the weakest.
 
-And besides:
+What Snaky implements (see the [PRD](docs/PRD.md) for the design and the experiments behind each technique):
 
-- **Strength levels**: `UCI_LimitStrength` and `UCI_Elo` (`--elo` in the command line) play at an Elo from 900 to 2800,
-  in steps of 100 (see *Versions and styles*).
-- **Opening book** (`OwnBook`, off by default as rating lists require; on by default in `play`): Polyglot books of openings
-  where one side gains space (King's Indian, Benoni, French, Advance variations, closed Queen's Pawn, closed Ruy Lopez...),
-  built with [`tools/book.py`](tools/book.py). `Opening` plays only one of them (`--opening`), and `Book File` another book.
-- **Endgame tablebases**: the [Syzygy tablebases](https://syzygy-tables.info/) of up to 5 pieces (download them into
-  `tools/syzygy` as explained in [tools](tools/README.md)): exact results of the endgames in the search, and perfect
-  conversion of won endgames before the fifty-move rule. When they are downloaded they are used by default, in `play`
-  and in UCI (`SyzygyPath` is `tools/syzygy` by default); `--syzygy off` or an empty `SyzygyPath` play without them.
-- **Chess960**: `UCI_Chess960` (`--chess960` in the command line).
-- **Pondering**: `Ponder`, thinking on the opponent's time.
+- **Board**: bitboards with magic bitboards for the sliding pieces, Zobrist keys, legal move generation checked with perft.
+- **Search**: alpha-beta (negamax) with iterative deepening, principal variation search and aspiration windows,
+  quiescence search, a transposition table, null move pruning verified against zugzwang, late move reductions,
+  reverse futility, futility and late move pruning (sooner when the position does not improve), SEE pruning of late quiet
+  moves that hang the moved piece and of losing captures, ProbCut, check extension for checks that do not lose material,
+  move ordering (hash move, MVV-LVA, killers, countermove, history), mate distance pruning, and Lazy SMP for several threads.
+- **Evaluation**: tapered (middlegame and endgame), with material, piece-square tables, safe mobility, trapped and worst
+  pieces, space, territory, restriction, outposts, rook files, pawn structure and passed pawns, threats, king safety,
+  bishop pair, tempo and winnable endgames, an incentive to make progress, and a cache of evaluations; `snaky eval` shows
+  every term. Weights tuned with Texel's method on self-play games and real games against engines.
+- **Time**: a soft limit (the clock over 30 moves plus 3/4 of the increment) and a hard limit (at most a third of the
+  clock), pondering, and a fast answer for a single legal move.
+- **And**: an opening book of space openings, Syzygy tablebases (up to 5 pieces), Chess960, strength levels from 900 to 2800.
 
-Snaky plays with **4 threads and 256 MB of hash** by default (UCI options `Threads` and `Hash`, `--threads` and `--hash`
-in the command line; fewer threads if the machine has fewer processors), about 50–120 Elo stronger than with one thread
-(see *Threads and hash*). The tools of `tools/` measure with one thread, as the results of this README.
-Other UCI options: `Move Overhead`, `Greedy Depth`, `SyzygyProbeDepth` and `Weights` (a weights file for Space or Full).
+Each change is an experiment, accepted only if it plays better: a sequential probability ratio test (SPRT,
+[`tools/sprt.sh`](tools/sprt.sh)) of up to 1000 games at 8+0.08 against the previous version, with balanced openings
+played with both colors. A change is accepted when the test proves it (H1), or when it ends positive without regression;
+changes that only make the engine faster (same search tree) are measured with `bench`. The strength is then checked
+against Stockfish with limited strength, and the style with [`tools/style.py`](tools/style.py). All the experiments,
+accepted and rejected, and the differences between versions are in the [PRD](docs/PRD.md) (§11 Experiments, §12 Versions).
 
-`./gradlew distZip` packages the engine in `build/distributions/snaky-<version>.zip`, with the launchers `bin/snaky`
-(macOS, Linux) and `bin/snaky.bat` (Windows), to install it anywhere with Java 17+.
+## Strength and style
 
-## Versions and styles
+All the data of this section is of the last version, v1.03, unless noted; the history of each version and its
+experiments are in the [PRD](docs/PRD.md) (§11, §12).
 
 Strength measured against Stockfish 19 with limited strength (`UCI_LimitStrength`, `UCI_Elo`), 100 games per level
 at 10+0.1 (v0: 40 games per level at 60+0.6), 1 thread, with the balanced openings of `tools/openings/balanced.epd`
@@ -126,11 +163,9 @@ where Snaky would be ~100 Elo higher (see the CCRL estimate below, measured at 2
 | **v1.03 Full** | ~2805 | 78% vs 2600, 53% vs 2800, 23% vs 3000, 8% vs 3190 | 281/300 | 11193 | 2227 |
 | Stockfish 19 (full strength, reference) | 3804 in CCRL Blitz (8 threads) | | 279/300 | 13876 (0.1 s) | 3832 |
 
-- Fitting the four levels, v1.03 is **2782 ± 41** (Space) and **2806 ± 41** (Full); v1.02 was 2736 and 2738 (2750 and 2748
-  with the levels 2600–3000 of v1.03), and v1.0 2746 and 2741. In their direct match v1.03 beats v1.02 by **+144 ± 35**
-  (244 games at 8+0.08), much more than against Stockfish (+30–60): games between versions of the same engine
-  exaggerate the gains of the search. In v1.02 Space and Full were equal in their direct match (−1 ± 18; in v1.0 Full won by +37 ± 16).
-- `UCI_Elo` of Stockfish goes up to 3190.
+- Fitting the four levels, v1.03 is **2782 ± 41** (Space) and **2806 ± 41** (Full), +30–60 over v1.02 against Stockfish
+  (and +144 ± 35 in their direct match: games between versions of the same engine exaggerate the gains of the search).
+  The `UCI_Elo` of Stockfish goes up to 3190.
 - WAC: [Win At Chess](tools/suites/wac.epd), 300 tactical positions. STS: [Strategic Test Suite](tools/suites/sts.epd),
   1500 positional positions, points out of 15000 with `tools/sts.py`; STS Elo is the CCRL 40/4 estimate of
   [`sts_rating.py`](https://github.com/fsmosca/STS-Rating) (v0: from its score with the same formula).
@@ -142,37 +177,6 @@ where Snaky would be ~100 Elo higher (see the CCRL estimate below, measured at 2
   better than depth 3. Its results are not monotonic: odd depths end on its own move and see more captures (better in WAC),
   even depths end on the reply of the opponent and are more careful (better in STS). Greedy searches a fixed depth,
   so the time per position does not change its moves.
-
-v1.01 adds the opening book and the Syzygy tablebases. Against Stockfish with both (`OwnBook`, 3–5 pieces), from the
-initial position so that the book plays the opening (v1.0: balanced openings), 100 games per level at 10+0.1:
-
-| Against Stockfish | 2400 | 2600 | 2800 | 3000 | Elo (fit of the 4 levels) |
-|---|---|---|---|---|---|
-| Space v1.0 | 86% | 73.5% | 42.5% | 17% | 2746 ± 40 |
-| Space v1.01 | 86% | 79% | 42.5% | 20.5% | 2768 ± 40 |
-| Full v1.0 | 90% | 76% | 36.5% | 14.5% | 2741 ± 40 |
-| Full v1.01 | 84% | 71% | 42.5% | 25.5% | 2756 ± 40 |
-
-- v1.01 is +22 (Space) and +15 (Full) Elo, within the margin of error (±57 for a difference): no measurable change.
-- Against limited Stockfish the book plays only ~2.5 moves per game: Stockfish varies its replies (93% of the games
-  have different first 8 plies) and soon leaves the repertoire. The tablebases are reached in 20–45% of the games.
-
-v1.02 adds endgame knowledge to the evaluation (a rook behind a passed pawn, the *winnable* term and the scale factors
-of Stockfish classical: opposite-colored bishops, rook endgames with pawns on one flank, few pawns) and retunes every
-weight of Full with 2.4 M positions, including 352,000 of real games against engines (Stockfish and the Lichess bots).
-Against v1.01 (1000 games at 8+0.08): Space **+9 ± 16**, Full **+22 ± 17**. Against Stockfish 2800 (1 thread, 100 games):
-Space 46.5% and Full 45% (v1.01: 42.5%). The new Full restricts the opponent more (23.6 moves left against 25.1)
-and wins more games behind in material, but no longer plays for space; Space keeps its style.
-Retuning Space with its style weights fixed was worse (−28), and so was giving more time when the best move changes (−28).
-See the [PRD](docs/PRD.md) (§10, v1.02).
-
-v1.03 searches faster and prunes better, with the same evaluation as v1.02: magic bitboards and an evaluation cache
-(+22% nodes per second), and from the queue of single changes of other engines, each one tested against the previous
-winner (1000 games at 8+0.08 at most): SEE pruning of late quiet moves that hang the moved piece (+10) and of losing
-captures (+16), the check extension for checks that do not lose material by SEE (+16), *improving* in reverse futility
-and late move pruning (+17) and ProbCut (+9). Rejected: an adaptive null move reduction, history pruning, history in
-the late move reductions, a new Texel tuning of Full (+2) and Space rebuilt from the weights of Full (−13).
-See the [PRD](docs/PRD.md) (§10, v1.03).
 
 STS by theme (`tools/sts.py`, 0.2 s per position, points out of 1000; Space and Full v1.03; Stockfish with 0.1 s):
 
@@ -249,20 +253,21 @@ always with one thread (whatever `Threads`), as the levels were calibrated.
 The lowest levels play the greedy search, the middle levels the Space style (or the style of the `Style` option)
 limited to a number of nodes per move, so it keeps every technique of its search (quiescence, extensions, reductions)
 and only sees less, and the top level plays Full without limit. The Elo of the limited search grows with the logarithm
-of the nodes: about **135 Elo per doubling** (50 games against Stockfish per point, 10+0.1):
+of the nodes: about **148 Elo per doubling** (v1.03, 50 games against Stockfish per point, 10+0.1, 1 thread):
 
 | Nodes per move | 64 | 256 | 1024 | 4096 | 16384 | 65536 | 262144 |
 |---|---|---|---|---|---|---|---|
-| Against Stockfish | 49% vs 1320 | 26% vs 1500 | 23% vs 1800 | 35% vs 2100 | 52% vs 2300 | 51% vs 2500 | 76% vs 2600 |
-| Elo | ~1310 | ~1320 | ~1590 | ~1990 | ~2310 | ~2510 | ~2800 |
+| Against Stockfish | 66% vs 1320 | 38% vs 1500 | 25% vs 1800 | 36% vs 2100 | 47% vs 2400 | 57% vs 2600 | 48% vs 2800 |
+| Elo | ~1435 | ~1415 | ~1610 | ~2000 | ~2380 | ~2650 | ~2785 |
 
 | UCI_Elo | 900 | 1000 | 1100 | 1200 | 1300 | 1500 | 1800 | 2000 | 2200 | 2500 | 2700 | 2800 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Plays | Greedy depth 2 | Greedy depth 2 | Greedy depth 3 | Greedy depth 4 | Space, 127 nodes | 356 nodes | 1.7k nodes | 4.6k nodes | 13k nodes | 60k nodes | 169k nodes | Full |
+| Plays | Greedy depth 2 | Greedy depth 2 | Greedy depth 3 | Greedy depth 4 | Space, 160 nodes | 409 nodes | 1.7k nodes | 4.3k nodes | 11k nodes | 44k nodes | 113k nodes | Full |
 
 The nodes are reached in a fraction of a second, so the levels play fast and do not depend on the time control.
-The levels were calibrated with the search of v1.0: with the faster search and the new pruning of v1.03, the levels
-limited by nodes play somewhat stronger than their nominal Elo (the greedy levels and the top level are not affected).
+The weakest alpha-beta search plays at about 1420 even with very few nodes (it completes its first iterations), so the
+level 1300 plays somewhat stronger than its Elo, and the levels from 1000 to 1200 use the greedy search
+(v1.0 calibration: 135 Elo per doubling).
 
 ### CCRL estimate
 

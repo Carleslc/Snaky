@@ -25,7 +25,7 @@ object Strength {
     val GREEDY_ELO: Map<Int, Int> = mapOf(2 to 900, 3 to 1100, 4 to 1120)
 
     /** Estimated Elo of the styles of the alpha-beta search without limit, with one thread. */
-    val STYLE_ELO: Map<String, Int> = mapOf("Space" to 2750, "Full" to 2800, "Material" to 2550)
+    val STYLE_ELO: Map<String, Int> = mapOf("Space" to 2780, "Full" to 2800, "Material" to 2550)
 
     /**
      * Elo gained by each doubling of the threads of the search without limit (Lazy SMP), measured with 4 threads against
@@ -36,12 +36,12 @@ object Strength {
 
     /**
      * Elo of the Space style limited to [REFERENCE_NODES] nodes per move: a linear fit of the Elo against the logarithm
-     * of the nodes, from games against Stockfish with 64 to 262144 nodes per move (README).
+     * of the nodes, from games against Stockfish with 256 to 262144 nodes per move with the search of v1.03 (README).
      */
-    private const val REFERENCE_ELO = 1976.0
+    private const val REFERENCE_ELO = 1992.0
     private const val REFERENCE_NODES = 4096.0
     /** Elo gained by each doubling of the nodes per move. */
-    private const val ELO_PER_DOUBLING = 135.0
+    private const val ELO_PER_DOUBLING = 148.0
 
     val MIN_ELO: Int = GREEDY_ELO.values.min()
     val MAX_ELO: Int = STYLE_ELO.getValue("Full")
@@ -90,7 +90,7 @@ object Strength {
 
     /** The alpha-beta search with fewer nodes is not weaker: it plays its first iterations, which are always complete. */
     private const val MIN_NODES = 64L
-    /** Elo of the alpha-beta search with [MIN_NODES] (measured: about 1310). */
+    /** Lowest Elo played by the alpha-beta search (with [MIN_NODES] it plays about 1420, closer to 1300 than the greedy search). */
     private const val MIN_SEARCH_ELO = 1300
 
     const val GREEDY = "Greedy"

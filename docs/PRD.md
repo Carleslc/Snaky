@@ -75,7 +75,7 @@ Snaky/
 LICENSE, NOTICE      GPLv3 y aviso de copyright, atribución y créditos
 ```
 
-El motor se llamaba Chessy hasta v1.01, cuando pasó a llamarse Snaky (una serpiente constrictora, como su estilo; en Lichess, Snaky-Bot). La rama `v0` conserva la primera implementación (2018–2019), Chessy v0, arreglada y con las reglas completas para ser jugable en consola (ver §12). La rama `python-old` conserva el visor de 2022 tal como estaba.
+El motor se llamaba Chessy hasta v1.01, cuando pasó a llamarse Snaky (una serpiente constrictora, como su estilo; en Lichess, Snaky-Bot). La rama `v0` conserva la primera implementación (2018–2019), Chessy v0, arreglada y con las reglas completas para ser jugable en consola (ver §14). La rama `python-old` conserva el visor de 2022 tal como estaba.
 
 ### 4.2 Módulos del motor
 
@@ -130,8 +130,11 @@ Base:
 Avanzado (cada técnica entra solo si gana en SPRT):
 - **PVS** (Principal Variation Search) y **aspiration windows**.
 - **Null move pruning** (desactivado en finales con riesgo de zugzwang).
-- **LMR** (Late Move Reductions), **futility** / **reverse futility pruning**, **late move pruning**.
-- **Extensión por jaque** (solo jaques seguros: la pieza que da jaque no puede ser capturada).
+- **LMR** (Late Move Reductions), **futility** / **reverse futility pruning**, **late move pruning**; desde v1.03, *improving* (la evaluación estática mejora respecto a dos plies antes: *reverse futility* corta antes, y si no mejora *late move pruning* poda más jugadas).
+- **Poda por SEE** (v1.03): las jugadas tranquilas tardías que dejan la pieza en prisión y las capturas tardías que pierden material, cerca de las hojas.
+- **ProbCut** (v1.03): una captura que supera beta por un margen en una búsqueda menos profunda corta el nodo.
+- **Extensión por jaque** de los jaques que no pierden material (v1.0: la pieza que da jaque no puede ser capturada; v1.03: o el intercambio en su casilla no pierde, por SEE).
+- **Caché de evaluaciones** (v1.03) por hilo, y **magic bitboards** para los ataques de las piezas deslizantes.
 - **Incentivo de progreso**: la evaluación estática se reduce a medida que avanza el contador de 50 movimientos, para que el bando mejor avance en lugar de maniobrar indefinidamente.
 - **SEE** (Static Exchange Evaluation): atacantes y defensores sobre una casilla, para ordenar y podar capturas.
 - **Lazy SMP** (multihilo, §5.5) y *pondering* (pensar durante el turno del rival).
@@ -242,7 +245,7 @@ En CPU:
 - **Perft paralelo** (hecho): el árbol se reparte a dos plies de la raíz en tareas independientes, cada hilo con su copia de la posición. Medido en la máquina de desarrollo: 38 M nodos/s con 1 hilo, ~207 M con 8 (×5,4).
 - **Lazy SMP** para la búsqueda (Fase 4): varios hilos buscan la misma posición en paralelo compartiendo solo la tabla de transposición (sin bloqueos, con la técnica XOR de Hyatt para detectar entradas corruptas). Los hilos se desincronizan con profundidades u ordenaciones ligeramente distintas y se aprovechan de lo que los otros guardan en la tabla. Es el método de Stockfish y la mayoría de motores modernos porque es simple y escala razonablemente (con 4–8 hilos, típicamente +50–100 Elo respecto a 1 hilo). Alternativas más complejas como YBWC o ABDADA (citado en el README de la rama `python-old`) dan resultados similares con mucho más código.
 - **Herramientas**: partidas de test (SPRT) en paralelo con fastchess/cutechess (varias partidas a la vez) y *tuning* paralelo (evaluar muchas posiciones a la vez es trivialmente paralelizable).
-- Opción UCI `Threads`: 4 por defecto desde v1.01 (en UCI, `play` y el BOT), +89 Elo para Space y +119 para Full frente a 1 hilo a 10+0,1 (§10, v1.01). Los niveles de fuerza (`UCI_Elo`, `--elo`) buscan siempre con un hilo, como se calibraron, y las herramientas de medida (`sprt.sh`, `sts.py`, `epd.py`, `match.py`) usan un hilo por defecto.
+- Opción UCI `Threads`: 4 por defecto desde v1.01 (en UCI, `play` y el BOT), +89 Elo para Space y +119 para Full frente a 1 hilo a 10+0,1 (§12, v1.01). Los niveles de fuerza (`UCI_Elo`, `--elo`) buscan siempre con un hilo, como se calibraron, y las herramientas de medida (`sprt.sh`, `sts.py`, `epd.py`, `match.py`) usan un hilo por defecto.
 
 ## 6. Requisitos no funcionales
 
@@ -274,7 +277,7 @@ En CPU:
 - **BOT Snaky-Bot** (desde v1.02): estilo Space (el constrictor; Full es igual de fuerte pero restringe menos con los términos del estilo) con 4 hilos, 256 MB, *pondering*, libro y tablas; retos estándar y Chess960 de 1 a 30 minutos y por correspondencia de 1 a 7 días, casuales y puntuables, de humanos y bots, una partida a la vez. Abandona tras 11 jugadas por debajo de −30 peones (impar: tras una jugada del rival). lichess-bot arranca con `snaky_bot.py`, que añade al chat `!explain [jugada]` (la evaluación estática término a término, para los espectadores), quita `!wait` y usa las tablas online de Lichess (hasta 7 piezas) solo en finales ganados: en los de tablas Snaky elige entre las jugadas que las mantienen, y los perdidos los defiende Snaky. `challenge.py` reta a un jugador o a bots en línea de rating parecido cuando se quiere ver una partida, y cancela el reto si el BOT empieza otra partida.
 - **Licencia**: GPLv3 (`LICENSE`), con un término adicional según su sección 7(b) que obliga a conservar la atribución "Snaky by Carleslc" (`NOTICE`, que también da crédito a Stockfish, Syzygy, PolyGlot, lichess-bot y demás). El zip del motor y la imagen Docker incluyen los dos ficheros.
 
-### Versiones
+### Esquema de versiones
 
 | Versión | Qué es | Dónde |
 |---|---|---|
@@ -329,7 +332,7 @@ Cada fase termina con sus criterios de aceptación cumplidos y fusionada en `mas
 ### Fase 0 — Reorganización ✅
 - Rama `kotlin` → `v0` (antes `kotlin-old`); rama `python` → `python-old`, y su contenido → `master` en `tools/`.
 - PRD.
-- Arreglos en `v0` para que sea jugable en consola (§12).
+- Arreglos en `v0` para que sea jugable en consola (§14).
 
 ### Fase 1 — Núcleo de reglas (core) ✅
 - Bitboards, casillas, piezas, tablas de ataques (incluidas deslizantes con rayos).
@@ -551,10 +554,82 @@ Cada fase termina con sus criterios de aceptación cumplidos y fusionada en `mas
   - Versión **v1.0** (tag `v1.0`).
   - Quedaban como mejoras futuras el libro de aperturas, las tablas Syzygy y Chess960 (hechos en v1.01, abajo), `native-image` y evaluadores alternativos.
 
-### Mejoras antes del BOT en línea (v1.01)
+## 11. Experimentos
+
+Cada cambio del motor es un experimento: se implementa en una rama o *snapshot* (`tools/snapshot.sh`) y se juega un SPRT con fastchess (`tools/sprt.sh`: 8+0,08, libro `balanced.epd` con cada apertura jugada con ambos colores, `elo0=0 elo1=10`, α = 0,05, β = 0,1) contra la versión anterior o el último ganador, con 1 hilo por motor y 10 partidas a la vez. Hasta la Fase 6 el máximo era de 1500 partidas (algunos de 3000–3580); desde v1.01, 300 y después 1000. Se acepta si el SPRT acepta H1, o si al terminar es positivo y sin regresión (≥ +5 Elo con LOS ≳ 85 %); los cambios que solo aceleran el motor sin cambiar el árbol (mismos nodos en `bench`) se aceptan midiendo la velocidad. El ruido de 1000 partidas es de unos ±15 Elo: el mismo motor contra sí mismo (la poda por historia que no se activaba) dio +8. La fuerza se comprueba además contra Stockfish 19 limitado (`UCI_Elo`, 100 partidas por nivel a 10+0,1), y el estilo con `tools/style.py`.
+
+Resultados: Elo del SPRT contra la versión anterior (partidas entre paréntesis), salvo que se indique otra cosa.
+
+| # | Experimento | Rendimiento | SPRT (*self-play*) | Contra Stockfish | Decisión | Versión |
+|---|---|---|---|---|---|---|
+| 1 | Fase 3: búsqueda base (negamax alfa-beta, profundización iterativa, quiescencia, MVV-LVA) con `MaterialEvaluator` | `bench` 6: ~5,3 M nodos/s | Greedy profundidad 2: 100 % (100) | ~1900 (93 % contra 1500, 63,5 % contra 1800) | ✅ base | v1.0 |
+| 2 | Tabla de transposición (`Hash`, `hashfull`, XOR de Hyatt) | | +235 ± 52 (190) | | ✅ | v1.0 |
+| 3 | *Killers* + historial (con gravedad) | | +112 ± 34 (318) | | ✅ | v1.0 |
+| 4 | PVS + ventanas de aspiración | | +28 ± 16 (1192) | | ✅ | v1.0 |
+| 5 | *Null move pruning* (R = 3 + profundidad/4) | | +173 ± 44 (226) | | ✅ | v1.0 |
+| 6 | LMR (tabla logarítmica) | | +147 ± 40 (258) | | ✅ | v1.0 |
+| 7 | Extensión por jaque (todos los jaques) | | −4 ± 13 (1500); quitarla, +7 ± 13 (1500) | | ❌ | |
+| 8 | SEE: ordenación y poda de capturas perdedoras en quiescencia | | +12 ± 13 (1500, LOS 96,9 %) | | ✅ | v1.0 |
+| 9 | *Reverse futility*, *futility* y *late move pruning* | | +191 ± 43 (212) | | ✅ | v1.0 |
+| 10 | Tiempo por estabilidad (×1,4 si cambia la jugada, ×0,8 / ×0,6 si es estable, ×1,3 si cae la puntuación) | | −12 ± 14 (1290, H0) | | ❌ | |
+| 11 | Lazy SMP: 4 hilos frente a 1 | ~×2,5 nodos/s | +223 ± 42 (196) | Fase 4: ~2450–2500 con 1 hilo | ✅ (4 hilos por defecto desde v1.01) | v1.0 |
+| 12 | Verificación del *null move* contra el zugzwang | | +3 ± 14 (1400) | | ✅ | v1.0 |
+| 13 | Evaluación Space (Constrictor) frente a Material | `bench` ~930 k nodos/s | +183 ± 47 (230) | ~2650–2700 (Material ~2450–2500) | ✅ | v1.0 |
+| 14 | Incentivo de progreso (evaluación × (200 − contador de 50 jugadas) / 200) | | −1 ± 16 (1122) | | ✅ (por el comportamiento) | v1.0 |
+| 15 | *Countermove* | `bench` −17 % nodos | +6 ± 15 (1260) | | ✅ | v1.0 |
+| 16 | Texel 1 (817 k posiciones de *self-play*) | | +142 ± 43 (284) | | ✅ | v1.0 |
+| 17 | Texel 1 con el material fijo y cambios limitados | | +76 ± 29 (458); la versión libre le gana por +48 ± 22 | | ❌ | |
+| 18 | Texel 2 (1,72 M posiciones) | | +20 ± 13 (1698) | | ✅ | v1.0 |
+| 19 | Extensión por jaque seguro (la pieza que da jaque no puede ser capturada) | | +7,8 ± 9,2 (3000, LOS 95 %) | | ✅ | v1.0 |
+| 20 | Signos de los pesos restringidos y reajuste | | +0,8 ± 8,8 (3580) | | ✅ (coherencia) | v1.0 |
+| 21 | Texel con todos los pesos, también los del estilo | | +19,5 ± 17 | 90 % contra 2400 | ✅ (base de Full) | v1.0 |
+| 22 | Space: pesos del estilo subidos a mano sobre el ajuste (espacio 90, movilidad 135 %, restricción 8/3; 5 variantes) | | −6 ± 16 frente al primer ajuste; −58 ± 31 frente a 21 | 86 % contra 2400; ~2746 ± 40 | ✅ (Space) | v1.0 |
+| 23 | Estilo Full (21) frente a Space (22) | | +37 ± 16 (1000) | ~2741 ± 40 | ✅ | v1.0 |
+| 24 | Desvanecer el término de espacio en el umbral de material | | −20 ± 28 (300) | | ❌ | |
+| 25 | Tablas Syzygy de 3 a 5 piezas | | −3 ± 30 (300) | | ✅ (juego perfecto en finales) | v1.01 |
+| 26 | Libro de aperturas y tablas, desde la posición inicial | | | Space 2768 ± 40, Full 2756 ± 40 (v1.0: 2746 y 2741) | ✅ | v1.01 |
+| 27 | 4 hilos y 256 MB por defecto | ~×2,5 nodos/s | | +89 (Space) y +119 (Full) frente a 1 hilo: 2843 y 2894 | ✅ | v1.01 |
+| 28 | Términos de finales (torre detrás del peón pasado, *winnable* y factores de escala de Stockfish clásico), ajustados con Texel | | +9,4 ± 16,4 (1000); desde finales +3,5 ± 13 (300) | Space 46,5 % contra 2800 (v1.01: 42,5 %) | ✅ | v1.02 |
+| 29 | Reloj repartido entre 40 jugadas en lugar de 30 | | −12,8 ± 29 (300) | | ❌ | |
+| 30 | Tiempo por estabilidad moderado (×1,15 si cambia la jugada) | | −1 ± 29 (300); −27,9 ± 19,6 (636, H0) | | ❌ | |
+| 31 | Full: Texel de todos los pesos con 2,4 M posiciones (*self-play* y partidas contra motores) | | +22,3 ± 17,4 (1000) | 2738 ± 40 (v1.0 2741) | ✅ | v1.02 |
+| 32 | Space: el mismo ajuste con los pesos del estilo fijos | | −27,7 ± 21,2 (730, H0) | | ❌ | |
+| 33 | Límite duro de un tercio del reloj (como el modo pánico de Oxydan) | | +1,0 ± 17,7 (1000); 13 derrotas por tiempo frente a 46 | | ✅ | v1.02 |
+| 34 | Magic bitboards (*fancy*, semillas fijas por fila como Stockfish) | Mismo árbol; +8 % nodos/s, +25 % en perft de Kiwipete | | | ✅ | v1.03 |
+| 35 | *Magics* densas de *Best Magics so far* | −2 % nodos/s (ruido) | | | ❌ | |
+| 36 | Caché de evaluaciones estáticas por hilo | Mismo árbol; +22 % nodos/s con 34 | | | ✅ | v1.03 |
+| 37 | Poda por SEE de jugadas tranquilas que dejan la pieza en prisión | `bench` −5 % nodos | +10,4 ± 16,6 (1000) | | ✅ | v1.03 |
+| 38 | *Null move* adaptativo (+1 de reducción por cada 200 cp sobre beta) | | −4,9 ± 16 (1000) | | ❌ | |
+| 39 | Extensión de jaque por SEE (también si la pieza puede ser capturada pero el intercambio no pierde) | `bench` +13 % nodos | +15,7 ± 16,1 (1000) | | ✅ | v1.03 |
+| 40 | Poda por historia con margen 4000 por ply | Mismo árbol (no se activaba) | +8 ± 14,6 (1000): ruido | | ❌ | |
+| 41 | Poda por historia con margen 1000 por ply | −50 % nodos a profundidad 20 | −5,9 ± 15,3 (1000) | | ❌ | |
+| 42 | Poda por historia con margen 2000 por ply | −15 % nodos a profundidad 21 | −2,8 ± 14,6 (1000) | | ❌ | |
+| 43 | Poda por SEE de capturas que pierden | `bench` −23 % nodos | +15,7 ± 15,8 (1000) | | ✅ | v1.03 |
+| 44 | *Improving* en *reverse futility* y *late move pruning* | `bench` −17 % nodos | +16,7 ± 15,3 (1000) | | ✅ | v1.03 |
+| 45 | ProbCut | | +8,7 ± 15,5 (1000) | | ✅ | v1.03 |
+| 46 | LMR según la historia | | −1,0 ± 15,9 (1000) | | ❌ | |
+| 47 | Full: Texel con 4,4 M posiciones (*self-play* reciente, partidas contra Stockfish y de Lichess) | | +1,7 ± 16,3 (1000) | | ❌ | |
+| 48 | Space desde los pesos de Full con los pesos del estilo de Space (y variantes con más restricción) | | −12,9 ± 17,7 (1000) | 84,5 % contra 2600 (Space 76,5 %) | ❌ | |
+| 49 | **v1.03 frente a v1.02** (34, 36, 37, 39, 43, 44, 45) | `bench` 13: ~1,0 M nodos/s (v1.02 ~830 k) | **+144 ± 35** (244, H1) | Space **2782 ± 41**, Full **2806 ± 41** (v1.02: 2750 y 2748 con los mismos niveles) | ✅ | v1.03 |
+| 50 | Full: Texel solo con las partidas contra Stockfish (v1.0 a v1.03, todos los niveles) y de Lichess (677 k posiciones; error 0,1255 → 0,1213): baja mucho el material de medio juego (torre 686 → 334) | | −188 ± 53 (162, H0) | 77 % contra 2600 (Full 78 %); restringe algo más (25,05 frente a 25,41 jugadas del rival) con menos espacio y territorio | ❌ (sin ajuste de Space sobre estos pesos) | |
+| 51 | Recalibración de los niveles de fuerza con la búsqueda de v1.03 | | | 1992 + 148 Elo por duplicación de nodos (v1.0: 1976 + 135) | ✅ | v1.03 |
+
+## 12. Versiones
+
+| Versión | Qué cambia | Fuerza contra Stockfish (1 hilo) | WAC (1 s) | STS (0,2 s) | `bench` |
+|---|---|---|---|---|---|
+| **v0** (2018–2019) | Primera implementación, objetos y tablero como mapa, solo consola | ~1500 | 122 | 6.735 | |
+| **v1.0** | Motor nuevo: bitboards, búsqueda alfa-beta completa (Fases 3–4), evaluación Constrictor (Space), Full, Material y Greedy, Texel, Lazy SMP, *pondering* | Space 2746 ± 40, Full 2741 ± 40 | 285 / 283 | 10.875 / 10.868 | ~780 k nodos/s |
+| **v1.01** | Libro de aperturas, tablas Syzygy, Chess960, niveles de fuerza (`UCI_Elo`), 4 hilos y 256 MB por defecto, BOT en Lichess, nombre Snaky | Igual que v1.0 con 1 hilo; con 4 hilos 2843 (Space) y 2894 (Full) | | | |
+| **v1.02** | Términos de finales, Full reajustado con partidas reales, límite de tiempo con poco reloj; en el BOT, tablas online de 7 piezas, `!explain`, GPLv3 | Space 2736 ± 40, Full 2738 ± 40 | 282 / 280 | 10.821 / 10.783 | ~830 k nodos/s (`bench 13`) |
+| **v1.03** | Magic bitboards, caché de evaluaciones, podas por SEE, extensión de jaque por SEE, *improving*, ProbCut, niveles de fuerza recalibrados | Space 2782 ± 41, Full 2806 ± 41 | 283 / 281 | 11.152 / 11.193 | ~1,0 M nodos/s (`bench 13`) |
+
+Los Elo de v1.02 y v1.03 se miden de 2400 a 3000 y de 2600 a 3190 respectivamente, con aperturas equilibradas; los de v1.01, con el libro desde la posición inicial. WAC y STS: Space / Full.
+
+### v1.01: libro, Syzygy, Chess960, niveles de fuerza y BOT
 
 - **Nombre**: el motor pasa a llamarse **Snaky** (antes Chessy; v0 conserva el nombre Chessy), como la cuenta del BOT, Snaky-Bot: paquete `snaky`, lanzador `bin/snaky`, opción `--snaky` de `play` (antes `--chessy`) y repositorio `Carleslc/Snaky`. Los *snapshots* anteriores de `tools/engines/` conservan el lanzador `bin/chessy` (`sprt.sh` acepta los dos).
-- **Referencias**: §14 con todas las páginas de chessprogramming.org que cita el código, por temas.
+- **Referencias**: §16 con todas las páginas de chessprogramming.org que cita el código, por temas.
 - **`snaky play`**: muestra el estilo (con la profundidad de Greedy, o el Elo elegido) y su Elo estimado al empezar, y los guarda en el PGN (`White`/`Black` con el estilo, `WhiteElo`/`BlackElo` con el Elo estimado y `-` para la persona). La evaluación se muestra en peones desde el punto de vista de las blancas, como en los tableros de análisis (`+2.40 (White is better)`, `mate in 3 for Black`): antes era la puntuación de la búsqueda desde el punto de vista de Snaky (`cp -240`) y se confundía. Comando `eval` durante la partida.
   - Ejemplo de la partida del usuario contra Greedy (profundidad 2): 12...Nxe4?? 13.Bxe4. Greedy no tiene búsqueda de quiescencia: tras cualquier jugada tranquila veía 13.Qxf6 (gana el caballo) sin ver la recaptura ...Qxf6, así que prefirió "salvar" el caballo con Nxe4, que pierde pieza por peón (−2,40 para Snaky) pero menos que el caballo que creía perder (efecto horizonte).
 - **Niveles de fuerza** ([Playing Strength](https://chessprogramming.org/Playing_Strength); `UCI_LimitStrength`, `UCI_Elo` de 900 a 2800 en pasos de 100, `--elo`; clase `Strength`): Greedy a profundidad 2, 3 y 4 para los niveles bajos (~900, ~1100 y ~1120: sin quiescencia la profundidad 4 apenas mejora a la 3), el estilo elegido (Space por defecto) limitado a un número de nodos por jugada para los intermedios, conservando toda la búsqueda (quiescencia, extensiones, reducciones), y Full sin límite para 2800. Calibración con 50 partidas por punto contra Stockfish limitado: la fuerza crece **~135 Elo por cada duplicación de nodos** (64 nodos ~1310, 1024 ~1590, 4096 ~1990, 16384 ~2310, 65536 ~2510, 262144 ~2800).
@@ -575,22 +650,7 @@ Revisión con Stockfish (`tools/review.py`, profundidad 18) de las 10 primeras p
 - **Jaques**: 9 cp de media frente a 13 del resto: no hay preferencia por los jaques. 45.Re4+ contra SleepMindEngine no era un jaque absurdo, sino tres jugadas que Snaky valoraba igual (−1,1) y Stockfish no (Ra4 −0,36, Re4+ −1,31, f4 −1,96): falta conocimiento de finales de torres (el peón pasado de a3 y la actividad de la torre).
 - **Reloj**: 11 cp de media con más de un minuto, 22–31 cp con 10–60 s. Snaky gasta más que los rivales entre las jugadas 10 y 29 (7,8 frente a 6,0 s por jugada) y llega a la jugada 40 con la mitad de reloj (29 frente a 62 s).
 
-Cambios probados contra v1.01 (300 partidas por test, 8+0,08, que tiene la misma proporción incremento / tiempo base que 3+2):
-
-| Cambio | Resultado |
-|---|---|
-| Finales: torre detrás del peón pasado, término *winnable* de Stockfish clásico (complejidad: peones pasados, peones, rey que desborda, peones en los dos flancos, infiltración, finales de peones) y factores de escala (alfiles de distinto color, finales de torres con un peón de más en un flanco, pocos peones), ajustados con Texel (`tune --only`; error 0,08316 → 0,08201) | Desde finales equilibrados (`tools/openings/endgames.epd`): +3,5 ± 13 (82 % de tablas). Desde aperturas equilibradas: −12,8 ± 31 |
-| Reloj repartido entre 40 jugadas en lugar de 30 | −12,8 ± 29 |
-| Tiempo por estabilidad de la jugada (×0,8 / ×0,6 si la mejor jugada se repite 3 / 5 iteraciones, ×1,15 si cambia, ×1,3 si la puntuación cae más de 30 cp; la versión de la Fase 4 daba ×1,4 al cambiar) | −1 ± 29 |
-
-Con 300 partidas (±30 Elo) ningún cambio era medible, y las posiciones de los errores (`games/lichess/mistakes.epd`) tampoco se resolvían con los términos de finales (1 de 15, igual que v1.01): son sobre todo del medio juego. Se repitieron con **1000 partidas** (±17):
-
-| Cambio (contra v1.01, 8+0,08) | Resultado | Decisión |
-|---|---|---|
-| Términos de finales (Space) | **+9,4 ± 16,4** (1000 partidas, LOS 87 %) | ✅ aceptado (sin regresión, probablemente positivo) |
-| Tiempo por estabilidad | **−27,9 ± 19,6** (636 partidas, H0) | ❌ rechazado: dar más tiempo cuando cambia la mejor jugada deja menos para el resto de la partida |
-| Full reajustado (abajo) | **+22,3 ± 17,4** (1000 partidas) | ✅ aceptado |
-| Space reajustado con los pesos del estilo fijos | **−27,7 ± 21,2** (730 partidas, H0) | ❌ rechazado |
+Los cambios probados y sus resultados están en §11.
 
 **Nuevos datos de Texel**: las 1,7 M posiciones de *self-play* más 352.000 posiciones de 3790 partidas reales contra motores (los matches contra Stockfish desde 2000, sin Greedy, v0 ni los niveles de pocos nodos, y las partidas de Snaky-Bot en Lichess), contadas dos veces: 2,4 M posiciones (`games/texel3.txt`).
 
@@ -607,7 +667,7 @@ Medición final de v1.02 para el README (sin otras partidas a la vez en la máqu
 - Con libro: Space 2802 ± 52 con 1 hilo y 2851 ± 51 con 4 hilos; Full 2806 ± 52 y 2885 ± 50.
 - Estilo contra Stockfish 2600 y 2800: Space deja al rival 26,4 jugadas, espacio +0,82, territorio +0,11, 0,22 piezas atrapadas; Full 25,3 jugadas, +0,46, +0,39, 0,18.
 
-Quedan como herramientas `tools/review.py`, `tools/endgames.py`, `OPENINGS` en `sprt.sh` y `tune --only`, y el tiempo por estabilidad en la rama local `experiment/time-stability`.
+Quedan como herramientas `tools/review.py`, `tools/endgames.py`, `OPENINGS` en `sprt.sh` y `tune --only`.
 
 ### v1.02 (actualización): tiempo con poco reloj y finales de las tablas online
 
@@ -622,23 +682,7 @@ Del resto de la gestión del tiempo de Oxydan (porcentajes del reloj por fase: 4
 
 ### v1.03: velocidad y búsqueda
 
-Con el BOT parado para no compartir la CPU, una cola de cambios sueltos de otros motores (DeepBecky, Tempest), cada uno probado con SPRT contra el último ganador (como mucho 1000 partidas a 8+0,08; aceptado si el SPRT lo acepta o si al terminar es positivo, como los términos de finales de v1.02):
-
-| Cambio | Resultado | Decisión |
-|---|---|---|
-| Magic bitboards ([Magic Bitboards](https://chessprogramming.org/Magic_Bitboards); *fancy*, ~840 KiB, números buscados al arrancar con semillas fijas por fila, como Stockfish) | Mismo árbol, +8 % nodos/s en `bench`, +25 % en perft 5 de Kiwipete. Las *magics* más densas de [Best Magics so far](https://chessprogramming.org/Best_Magics_so_far) no cambian la velocidad (−2 %, dentro del ruido) | ✅ |
-| Caché de evaluaciones estáticas por hilo (262.144 entradas, 3 MB) | Mismo árbol, +22 % nodos/s con lo anterior (la evaluación es más de la mitad del tiempo, según Java Flight Recorder) | ✅ |
-| Poda por SEE de jugadas tranquilas tardías que dejan la pieza en prisión (profundidad ≤ 6, más de 60 cp por ply) | +10,4 ± 16,6 | ✅ |
-| *Null move* adaptativo (+1 ply de reducción por cada 200 cp sobre beta, hasta 3) | −4,9 ± 16 | ❌ |
-| Extensión de jaque también cuando la pieza que da jaque puede ser capturada pero el SEE no pierde | +15,7 ± 16,1 | ✅ |
-| Poda por historia (margen 4000 por ply: no se activaba nunca, el mismo motor dio +8, una medida del ruido; margen 1000) | −5,9 ± 15,3 | ❌ |
-| Poda por SEE de capturas tardías que pierden (profundidad ≤ 6, más de 20 cp por ply al cuadrado) | +15,7 ± 15,8 | ✅ |
-| *Improving* (la evaluación estática mejora respecto a dos plies antes): un ply menos de margen en *reverse futility pruning*, y *late move pruning* desde la mitad de jugadas si no mejora | +16,7 ± 15,3 | ✅ |
-| ProbCut ([ProbCut](https://chessprogramming.org/ProbCut); desde profundidad 5, capturas que superan beta + 200 en quiescencia y en una búsqueda 4 plies menor) | +8,7 ± 15,5 | ✅ |
-| LMR según la historia (±1 ply por cada 8192, hasta 2) | −1,0 ± 15,9 | ❌ |
-| Texel de Full con 4,4 M posiciones (*self-play* reciente, partidas contra Stockfish y las 66 partidas del BOT en Lichess) | +1,7 ± 16,3 (error 0,0895 → 0,0891) | ❌ |
-| Space desde los pesos de Full con los pesos del estilo de Space (método de la Fase 6) | Mejor estilo y 84,5 % contra Stockfish 2600 (el Space actual 76,5 %), pero −12,9 ± 17,7 en el enfrentamiento directo | ❌ |
-| Variantes con más restricción (15, 8) y movilidad 160 % | Menos movilidad del rival (25,8) pero menos piezas atrapadas, y más débiles contra Stockfish (82,5 y 77,5 %) | ❌ |
+Con el BOT parado para no compartir la CPU, una cola de cambios sueltos inspirados en otros motores (DeepBecky, Tempest), cada uno probado con SPRT contra el último ganador. Los experimentos y sus resultados están en §11.
 
 Ya estaban: *null move* solo con la evaluación estática por encima de beta, su verificación contra el zugzwang, LMR en la raíz y conservar la jugada de la tabla de transposición al guardar un *fail low*.
 
@@ -646,9 +690,9 @@ Ya estaban: *null move* solo con la evaluación estática por encima de beta, su
 
 **Lichess**: el BOT rinde ~2450 en sus 66 partidas (51 % contra rivales de 2446 de media, 2 derrotas por tiempo), frente a la estimación de ~2800–2850 en CCRL Blitz. No es una contradicción: la escala de los bots de Lichess es un grupo cerrado y está desplazada respecto a CCRL (los bots con Stockfish rondan 3000–3300 en blitz con Stockfish por encima de 3600 en CCRL; Tempest, con evaluación clásica, rondaba 2450–2650 en blitz). Además el BOT juega en un ordenador de casa (latencia de red, CPU compartida con otras tareas) y muchos ritmos rápidos.
 
-Los niveles de fuerza (`UCI_Elo`) se calibraron con la búsqueda de v1.0: con la de v1.03 los niveles limitados por nodos juegan algo más fuerte que su Elo nominal (falta recalibrarlos).
+Niveles de fuerza recalibrados con la búsqueda de v1.03 (Space limitado por nodos, 50 partidas por punto a 10+0,1 contra Stockfish): 64 nodos ~1435 (66 % contra 1320), 256 ~1415, 1024 ~1610, 4096 ~2000, 16384 ~2380, 65536 ~2650 y 262144 ~2785. Desde 256 nodos, **Elo = 1992 + 148 × log2(nodos / 4096)** (v1.0: 1976 + 135); con menos nodos la búsqueda no baja de ~1420. Space pasa a 2780 en `Strength`.
 
-## 11. Riesgos
+## 13. Riesgos
 
 | Riesgo | Mitigación |
 |---|---|
@@ -659,7 +703,7 @@ Los niveles de fuerza (`UCI_Elo`) se calibraron con la búsqueda de v1.0: con la
 | JVM: calentamiento y GC | Sin asignaciones en búsqueda; `bench` al iniciar opcional; GraalVM native-image |
 | La cuenta BOT de Lichess es irreversible | Usar una cuenta nueva dedicada |
 
-## 12. Legado: rama `v0`
+## 14. Legado: rama `v0`
 
 Primera implementación (2018–2019): piezas como objetos, tablero como mapa/matriz, minimax alfa-beta. Se corrigieron los errores graves para dejarla jugable en consola:
 
@@ -673,7 +717,7 @@ Primera implementación (2018–2019): piezas como objetos, tablero como mapa/ma
 
 Después se completaron las reglas (enroque, captura al paso, subpromoción, material insuficiente con alfiles del mismo color), FEN, SAN, exportación a PGN (`--pgn`), búsqueda por tiempo sin límite de profundidad y tests (`mvn test`: perft de las posiciones de referencia, reglas, SAN, PGN y búsqueda). No tiene UCI: queda como referencia histórica, jugable en consola. Con el adaptador `tools/v0_uci.py` (que la arranca desde la posición en cada jugada) se pudo medir: ~1500 en la escala de Stockfish (87,5 % contra 1320 y 25 % contra 1600, a 60+0,6), WAC 122/300 y STS 6.735/15.000. Gana el 97 % de las partidas a v1 Greedy.
 
-## 13. Glosario
+## 15. Glosario
 
 - **Ply** (medio movimiento): una jugada de un solo bando. Una "jugada" en notación ajedrecística (1. e4 e5) son 2 plies. En la búsqueda, el *ply* de un nodo es su **distancia a la raíz**: cuántas jugadas se han hecho desde la posición actual para llegar a él. Sirve para indexar estructuras por nivel (listas de jugadas, *killers*) y para puntuar mates (`MATE - ply`: un mate más cercano vale más).
 - **Profundidad** (*depth*): cuántos plies **quedan por buscar** desde un nodo antes de evaluarlo (o pasar a la quiescencia). En una búsqueda uniforme `depth + ply = profundidad de la iteración`, pero con **extensiones** (se suma profundidad en jaques) y **reducciones** (LMR, *null move*) dejan de coincidir: una línea forzada puede llegar a un ply mucho mayor que la profundidad nominal (eso es el `seldepth` de UCI) y una línea poco prometedora se busca con menos profundidad. Resumen: el *ply* mira hacia atrás (cuánto llevamos), la profundidad hacia delante (cuánto queda).
@@ -682,7 +726,7 @@ Después se completaron las reglas (enroque, captura al paso, subpromoción, mat
 - **SAN**: notación algebraica estándar (`Nf3`). **UCI**: protocolo entre GUI y motor, y su notación de jugadas (`g1f3`).
 - **SPRT**: test estadístico para decidir si un cambio gana Elo jugando el mínimo número de partidas necesario.
 
-## 14. Referencias
+## 16. Referencias
 
 Páginas de [chessprogramming.org](https://chessprogramming.org/Main_Page) citadas en el código del motor y las herramientas, por temas:
 
