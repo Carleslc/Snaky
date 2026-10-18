@@ -86,7 +86,8 @@ The offline test plays against Snaky with the greedy search, because the image h
   in drawn endgames: with 7 pieces or fewer, a score from −0.25 to 0 for 10 moves (a draw is −0.15, the contempt;
   [`snaky_bot.py`](snaky_bot.py) adds the upper bound, so Snaky does not offer draws when it is slightly better).
 - **Time**: lichess-bot keeps 1 s for network delays (`move_overhead`) and Snaky 100 ms (`Move Overhead`):
-  increase them if the bot loses on time.
+  increase them if the bot loses on time. If the connection of a game breaks while it goes on, [`snaky_bot.py`](snaky_bot.py)
+  reconnects it (lichess-bot would leave the game and lose it on time).
 - The opening book and the Syzygy tablebases of Snaky (`OwnBook`, `SyzygyPath`, up to 5 pieces), and the online tablebases
   of Lichess (`online_egtb`) in endgames of up to 7 pieces with at least 10 s on the clock: they play won endgames
   perfectly, in drawn endgames Snaky chooses among the drawing moves, and lost endgames are played by Snaky

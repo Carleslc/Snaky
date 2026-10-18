@@ -13,9 +13,12 @@ The online tablebases (online_egtb) only play won endgames, and in drawn endgame
 the drawing moves (see snaky_egtb_move). Draws are offered or accepted with a score from -offer_draw_score to
 DRAW_SCORE_ABOVE (see snaky_offer_draw_or_resign).
 
+The stream of a game is reopened when it breaks while the game goes on (see GameStream): lichess-bot would leave the game.
+
 While paused (challenge.py --pause), the challenges of bots are declined as "not accepting challenges at the moment",
 but the challenges of players and the challenges sent with challenge.py are played (see snaky_is_supported).
 """
+import json
 import logging
 import os
 import subprocess
@@ -23,10 +26,13 @@ import sys
 import threading
 import time
 
+from http.client import HTTPException
+
 import chess
+import requests
 import yaml
 
-from lib import engine_wrapper, lichess_bot, model
+from lib import engine_wrapper, lichess, lichess_bot, model
 from lib.conversation import ChatLine, Conversation
 from lib.lichess import MAX_CHAT_MESSAGE_LEN
 
@@ -212,12 +218,64 @@ def snaky_accept_challenges(li, challenge_queue, *args, **kwargs):
     lichess_accept_challenges(li, challenge_queue, *args, **kwargs)
 
 
+lichess_get_game_stream = lichess.Lichess.get_game_stream
+
+
+class GameStream:
+    """
+    The stream of a game (get_game_stream), reopened when it breaks or ends while the game goes on. lichess-bot leaves
+    the game when its stream breaks (no line in 15 s), and the clock runs out without a move (https://lichess.org/4XjK3nrD).
+    The new stream starts with the full game, whose current state is passed on as the next state of the game.
+    """
+
+    def __init__(self, li, game_id: str):
+        self.li = li
+        self.game_id = game_id
+        self.response = lichess_get_game_stream(li, game_id)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exception):
+        self.response.close()
+
+    def iter_lines(self):
+        status = None
+        reconnected = False
+        while True:
+            try:
+                for line in self.response.iter_lines():
+                    if line:
+                        event = json.loads(line)
+                        state = event.get("state", {}) if event.get("type") == "gameFull" else event
+                        if state.get("type") == "gameState":
+                            status = state.get("status")
+                            if reconnected and event is not state:
+                                line = json.dumps(state).encode("utf-8")
+                    yield line
+                error = "the stream ended"
+            except (requests.RequestException, HTTPException, OSError) as exception:
+                error = exception
+            if status != "started":
+                return
+            # The game goes on: a new stream (lichess-bot retries it for 60 s, then gives up the game)
+            logger.warning(f"The stream of the game {self.game_id} broke ({error}): reconnecting")
+            self.response.close()
+            self.response = lichess_get_game_stream(self.li, self.game_id)
+            reconnected = True
+
+
+def snaky_get_game_stream(self, game_id: str) -> GameStream:
+    return GameStream(self, game_id)
+
+
 # Replaced at import, also in the processes of the games (multiprocessing imports this module again)
 lichess_bot.Conversation = SnakyConversation
 engine_wrapper.get_lichess_egtb_move = snaky_egtb_move
 engine_wrapper.EngineWrapper.offer_draw_or_resign = snaky_offer_draw_or_resign
 model.Challenge.is_supported = snaky_is_supported
 lichess_bot.accept_challenges = snaky_accept_challenges
+lichess.Lichess.get_game_stream = snaky_get_game_stream
 
 if __name__ == "__main__":
     lichess_bot.start_program()
