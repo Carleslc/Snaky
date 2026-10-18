@@ -61,8 +61,8 @@ Options:
                          QueensGambit, RuyLopez or Pirc
   --chess960 <n>         Chess960: starting position number (0 to 959), random, or true (with --fen, and in divide and moves)
   --time <s>             Seconds to think per move in play (default: 3)
-  --fen <fen>            Starting position of play (between quotes)
-  --snaky <color>       Pieces played by Snaky in play: white, black (default), both or none
+  --fen <fen>            Position of perft, divide, d, moves, eval and syzygy, or starting position of play (between quotes)
+  --snaky <color>        Pieces played by Snaky in play: white, black (default), both or none
   --pgn <file>           Save the game played to this PGN file (added at the end if the file exists)
   --syzygy <path|off>    Folder of the Syzygy tablebases (default: tools/syzygy if downloaded), or off to play without them
   --weights <file>       Weights file of the Space or Full style (default: the tuned weights), also the starting point of tune
@@ -96,10 +96,12 @@ private class Arguments(args: Array<String>) {
     val depth: Int get() =
         positional.getOrNull(1)?.toIntOrNull()?.takeIf { it >= 0 } ?: throw IllegalArgumentException("Missing or invalid depth")
 
-    /** The FEN is the rest of the positional arguments from [index], so it can be passed with or without quotes. */
+    /** The FEN is --fen or the rest of the positional arguments from [index], so it can be passed with or without quotes. */
     fun position(index: Int): Position =
-        (if (positional.size > index) Position.fromFen(positional.drop(index).joinToString(" ")) else Position.startingPosition())
-            .apply { chess960 = isChess960 }
+        (fen(index)?.let { Position.fromFen(it) } ?: Position.startingPosition()).apply { chess960 = isChess960 }
+
+    /** The FEN of --fen, or the rest of the positional arguments from [index]. */
+    fun fen(index: Int): String? = options["fen"] ?: positional.drop(index).takeIf { it.isNotEmpty() }?.joinToString(" ")
 
     /** --chess960 true, a number or random: Chess960, with castling in UCI as the king taking its rook. */
     val isChess960: Boolean get() = options["chess960"]?.let { it != "false" } ?: false
@@ -415,8 +417,8 @@ private fun evaluationForWhite(score: Int, sideToMove: Color): String {
 private fun syzygy(arguments: Arguments) {
     val tablebases = Syzygy(arguments.options["syzygy"] ?: Syzygy.defaultPath() ?: throw IllegalArgumentException("Missing --syzygy path"))
     require(!tablebases.isEmpty) { "No Syzygy tables found" }
-    val fens = if (arguments.positional.size > 1) sequenceOf(arguments.positional.drop(1).joinToString(" "))
-        else generateSequence(::readLine).filter { it.isNotBlank() }
+    val fens = arguments.fen(1)?.let { sequenceOf(it) }
+        ?: generateSequence(::readLine).filter { it.isNotBlank() }
     val position = Position.startingPosition()
     for (fen in fens) {
         position.setFen(fen)

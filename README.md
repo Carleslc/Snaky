@@ -64,8 +64,8 @@ Options:
                          QueensGambit, RuyLopez or Pirc
   --chess960 <n>         Chess960: starting position number (0 to 959), random, or true (with --fen, and in divide and moves)
   --time <s>             Seconds to think per move in play (default: 3)
-  --fen <fen>            Starting position of play (between quotes)
-  --snaky <color>       Pieces played by Snaky in play: white, black (default), both or none
+  --fen <fen>            Position of perft, divide, d, moves, eval and syzygy, or starting position of play (between quotes)
+  --snaky <color>        Pieces played by Snaky in play: white, black (default), both or none
   --pgn <file>           Save the game played to this PGN file (added at the end if the file exists)
   --syzygy <path|off>    Folder of the Syzygy tablebases (default: tools/syzygy if downloaded), or off to play without them
   --weights <file>       Weights file of the Space or Full style (default: the tuned weights), also the starting point of tune

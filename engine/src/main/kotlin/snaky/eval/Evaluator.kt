@@ -133,7 +133,7 @@ class EvalTrace(val evaluator: String, val phase: Int, val sideToMove: Int) {
             appendLine("Dynamic value of the pieces (material + placement + activity):")
             appendLine()
             appendLine("%-8s %8s %16s %8s".format("Piece", "Mobility", "(mg, eg)", "Value"))
-            for (piece in pieces) {
+            for (piece in pieces.sortedByDescending { it.value.taper(phase) }) {
                 appendLine("%-8s %8d %16s %8d".format("${piece.piece} ${piece.square}", piece.mobility, piece.value, piece.value.taper(phase)))
             }
         }
