@@ -2,6 +2,10 @@
 
 [![Lichess](https://img.shields.io/badge/Lichess-Snaky--Bot-green?style=for-the-badge&logo=lichess&link=https%3A%2F%2Flichess.org%2F%40%2FSnaky-Bot)](https://lichess.org/@/Snaky-Bot)
 
+[![lichess-bullet](https://lichess-shield.vercel.app/api?username=Snaky-Bot&format=bullet)](https://lichess.org/@/Snaky-Bot/perf/bullet)
+[![lichess-blitz](https://lichess-shield.vercel.app/api?username=Snaky-Bot&format=blitz)](https://lichess.org/@/Snaky-Bot/perf/blitz)
+[![lichess-rapid](https://lichess-shield.vercel.app/api?username=Snaky-Bot&format=rapid)](https://lichess.org/@/Snaky-Bot/perf/rapid)
+
 A chess engine with a "constrictor" playing style: it gains space, controls squares and restricts the opponent's mobility, like a boa snake.
 
 👉 **Play [Snaky-Bot](https://lichess.org/@/Snaky-Bot)** on Lichess.
@@ -333,7 +337,8 @@ Snaky plays black by default (`--snaky white`, `both` or `none`), thinks `--time
 (at the end of the file if it already exists, so a file can collect all the games against Snaky).
 It plays with its opening book (`--book off` to disable it, `--opening` to play one opening of the book) and, if they are
 downloaded in `tools/syzygy`, with the endgame tablebases (`--syzygy off` to disable them, or `--syzygy <folder>`).
-Both are shown when the game starts.
+Both are shown when the game starts. `--chess960` plays Chess960 from a random starting position or from its number,
+from 0 to 959 (the 960 positions are listed in [chess960-positions.pdf](docs/chess960-positions.pdf)).
 
 When it starts, Snaky shows its style and its estimated Elo, which also go to the PGN (`White`/`Black` and
 `WhiteElo`/`BlackElo` tags, `-` for the player). After each move it shows its evaluation in pawns from the point of view
