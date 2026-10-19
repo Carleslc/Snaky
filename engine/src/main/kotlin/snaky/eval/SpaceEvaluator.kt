@@ -62,7 +62,7 @@ class SpaceEvaluator(val weights: SpaceWeights = SpaceWeights.DEFAULT, override 
         ROOKS("Rook files"),
         PAWNS("Pawn structure"),
         PASSED_PAWNS("Passed pawns"),
-        WEAKNESSES("Overextension, holes"),
+        WEAKNESSES("Overextension holes"),
         THREATS("Threats"),
         KING_SAFETY("King safety"),
         BISHOP_PAIR("Bishop pair"),
